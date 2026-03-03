@@ -10,7 +10,10 @@ export const FeishuPlusCalendarSchema = {
         "get_event",
         "create_event",
         "update_event",
-        "delete_event"
+        "delete_event",
+        "list_acls",
+        "create_acl",
+        "delete_acl"
       ]
     },
     calendar_id: { type: "string" },
@@ -28,7 +31,21 @@ export const FeishuPlusCalendarSchema = {
     },
     timezone: { type: "string", default: "Asia/Shanghai" },
     page_token: { type: "string" },
-    page_size: { type: "integer", minimum: 1, maximum: 500 },
+    page_size: { type: "integer", minimum: 50, maximum: 500 },
+
+    // ACL fields
+    acl_id: { type: "string" },
+    role: {
+      type: "string",
+      enum: ["free_busy_reader", "reader", "writer", "owner"]
+    },
+    scope_user_id: { type: "string", description: "被授权用户ID" },
+    user_id_type: {
+      type: "string",
+      enum: ["open_id", "user_id", "union_id"],
+      default: "open_id"
+    },
+
     attendees: {
       type: "array",
       items: { type: "object" },

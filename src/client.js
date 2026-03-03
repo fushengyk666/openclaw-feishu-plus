@@ -205,5 +205,25 @@ export async function createFeishuClient(api) {
         { method: "DELETE" },
       );
     },
+
+    // ===== Calendar ACL =====
+    async calendarListAcls(calendarId, query = {}) {
+      return call(`/open-apis/calendar/v4/calendars/${encodeURIComponent(calendarId)}/acls`, {
+        query,
+      });
+    },
+    async calendarCreateAcl(calendarId, body, query = {}) {
+      return call(`/open-apis/calendar/v4/calendars/${encodeURIComponent(calendarId)}/acls`, {
+        method: "POST",
+        query,
+        body,
+      });
+    },
+    async calendarDeleteAcl(calendarId, aclId) {
+      return call(
+        `/open-apis/calendar/v4/calendars/${encodeURIComponent(calendarId)}/acls/${encodeURIComponent(aclId)}`,
+        { method: "DELETE" },
+      );
+    },
   };
 }
