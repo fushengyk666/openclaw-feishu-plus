@@ -50,7 +50,7 @@
 ### 方式 A：通过 npm 包安装（推荐）
 
 ```bash
-openclaw plugins install @fushengyk/feishu-plus
+openclaw plugins install @fushengyk666/feishu-plus
 ```
 
 ### 方式 B：本地源码目录加载（开发调试）
@@ -126,3 +126,32 @@ openclaw plugins install @fushengyk/feishu-plus
 ## License
 
 MIT
+
+## GitHub Packages 发布与安装
+
+### 发布前准备
+1. 在 GitHub 创建 PAT（classic），至少勾选：
+   - `write:packages`
+   - `read:packages`
+   - `repo`（私有仓库建议勾上）
+2. 在发布机写入 `~/.npmrc`：
+
+```ini
+@fushengyk666:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT
+always-auth=true
+```
+
+### 发布
+
+```bash
+cd /home/fushengyk/release/feishu-plus
+npm publish
+```
+
+### 使用方安装
+
+```bash
+npm config set @fushengyk666:registry https://npm.pkg.github.com
+openclaw plugins install @fushengyk666/feishu-plus
+```
