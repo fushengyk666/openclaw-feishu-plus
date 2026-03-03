@@ -1,5 +1,5 @@
 {
-  "name": "@fushengyk666/feishu-plus",
+  "name": "@fushengyk/feishu-plus",
   "version": "0.1.0",
   "description": "OpenClaw Feishu 增强插件：权限、多维表、日历能力扩展",
   "type": "module",

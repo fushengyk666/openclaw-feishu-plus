@@ -50,7 +50,7 @@
 ### 方式 A：通过 npm 包安装（推荐）
 
 ```bash
-openclaw plugins install @fushengyk666/feishu-plus
+openclaw plugins install @fushengyk/feishu-plus
 ```
 
 ### 方式 B：本地源码目录加载（开发调试）
