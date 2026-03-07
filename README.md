@@ -14,39 +14,22 @@
 
 ## 当前能力
 
-## 1. `feishu_plus_perm`
-Feishu Drive / Bitable 协作者权限增强。
+## 1. `feishu_plus_docs`
+Feishu Docs / Drive / Wiki 增强域。
 
-支持动作：
-- `list`
-- `add`
-- `remove`
+当前已支持：
+- `list_permissions`
+- `add_permission`
+- `remove_permission`
 
-特点：
-- 显式参数校验
-- `add` 具备基础幂等处理
-- 支持通知开关
-
----
-
-## 2. `feishu_plus_bitable`
-Feishu Bitable 增强操作。
-
-支持动作：
-- `list_tables`
-- `create_table`
-- `delete_record`
-- `batch_create_records`
-- `batch_update_records`
-- `batch_delete_records`
-
-定位：
-- 只补官方基础能力之外更偏批量/增强的操作
-- 不重复实现官方已有基础 CRUD 工具
+说明：
+- 这是 docs 大功能域的第一步
+- 当前先从协作者/权限增强切入
+- 后续继续补更高级的 docs / drive / wiki 能力
 
 ---
 
-## 3. `feishu_plus_calendar`
+## 2. `feishu_plus_calendar`
 Feishu Calendar 增强工具。
 
 支持动作：
@@ -66,6 +49,37 @@ Feishu Calendar 增强工具。
 
 ---
 
+## 3. `feishu_plus_bitable`
+Feishu Bitable 增强操作。
+
+支持动作：
+- `list_tables`
+- `create_table`
+- `delete_record`
+- `batch_create_records`
+- `batch_update_records`
+- `batch_delete_records`
+
+定位：
+- 只补官方基础能力之外更偏批量/增强的操作
+- 不重复实现官方已有基础 CRUD 工具
+
+---
+
+## 4. `feishu_plus_perm`（兼容层）
+旧权限工具仍然保留，避免现有调用立刻断裂。
+
+支持动作：
+- `list`
+- `add`
+- `remove`
+
+定位：
+- 兼容旧调用
+- 长期会被 `feishu_plus_docs` / 其他域内权限动作逐步替代
+
+---
+
 ## 与官方插件的边界
 
 官方 OpenClaw Feishu 插件已经覆盖较多基础能力：
@@ -81,9 +95,10 @@ Feishu Calendar 增强工具。
 
 推荐分工：
 - 文档、云空间、知识库基础能力 → 官方插件
-- 日历 → `feishu-plus`
-- Bitable 批量增强 → `feishu-plus`
-- 协作者增强 → `feishu-plus`
+- 日历 → `feishu_plus_calendar`
+- 文档/云空间/知识库增强 → `feishu_plus_docs`
+- Bitable 批量增强 → `feishu_plus_bitable`
+- 旧协作者增强调用 → `feishu_plus_perm`（兼容层）
 
 ---
 
@@ -143,6 +158,7 @@ openclaw plugins install @fushengyk666/feishu-plus
         "config": {
           "enabled": true,
           "tools": {
+            "docs": true,
             "perm": true,
             "bitable": true,
             "calendar": true

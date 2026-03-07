@@ -2,7 +2,7 @@
   "id": "feishu-plus",
   "name": "Feishu Plus",
   "description": "Additive Feishu enhancement tools (safe, scoped)",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -13,6 +13,7 @@
         "additionalProperties": false,
         "properties": {
           "perm": { "type": "boolean", "default": true },
+          "docs": { "type": "boolean", "default": true },
           "bitable": { "type": "boolean", "default": true },
           "calendar": { "type": "boolean", "default": true }
         }
