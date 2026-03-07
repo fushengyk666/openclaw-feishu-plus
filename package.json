@@ -30,5 +30,10 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://npm.pkg.github.com"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
