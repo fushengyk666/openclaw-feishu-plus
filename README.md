@@ -6,7 +6,7 @@
 - **不替代**官方 OpenClaw Feishu 插件
 - **不修改**官方插件源码
 - 仅补全官方当前未覆盖或不够顺手的能力
-- 当前优先增强：**Calendar**、**Bitable 批量能力**、**Permission 协作者管理**
+- 当前优先增强：**Calendar**、**Docs/Drive/Wiki 增强**、**Bitable 批量能力**
 
 设计目标：**加法增强、边界清晰、可回滚、便于持续迭代**。
 
@@ -66,20 +66,6 @@ Feishu Bitable 增强操作。
 
 ---
 
-## 4. `feishu_plus_perm`（兼容层）
-旧权限工具仍然保留，避免现有调用立刻断裂。
-
-支持动作：
-- `list`
-- `add`
-- `remove`
-
-定位：
-- 兼容旧调用
-- 长期会被 `feishu_plus_docs` / 其他域内权限动作逐步替代
-
----
-
 ## 与官方插件的边界
 
 官方 OpenClaw Feishu 插件已经覆盖较多基础能力：
@@ -98,7 +84,6 @@ Feishu Bitable 增强操作。
 - 日历 → `feishu_plus_calendar`
 - 文档/云空间/知识库增强 → `feishu_plus_docs`
 - Bitable 批量增强 → `feishu_plus_bitable`
-- 旧协作者增强调用 → `feishu_plus_perm`（兼容层）
 
 ---
 
@@ -159,7 +144,6 @@ openclaw plugins install @fushengyk666/feishu-plus
           "enabled": true,
           "tools": {
             "docs": true,
-            "perm": true,
             "bitable": true,
             "calendar": true
           },
@@ -173,7 +157,7 @@ openclaw plugins install @fushengyk666/feishu-plus
 
 说明：
 - `enabled`：插件总开关
-- `tools.perm`：协作者增强开关
+- `tools.docs`：Docs/Drive/Wiki 增强开关
 - `tools.bitable`：Bitable 增强开关
 - `tools.calendar`：Calendar 增强开关
 - `defaultNeedNotification`：权限变更默认是否通知
