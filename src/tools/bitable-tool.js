@@ -1,6 +1,6 @@
-import { FeishuPlusBitableSchema } from "../bitable-schemas.js";
+import { FeishuPlusBitableSchema } from "../domains/bitable/schemas.js";
 import { createFeishuClient } from "../core/client.js";
-import { runBitableAction } from "../bitable-actions.js";
+import { runBitableAction } from "../domains/bitable/actions.js";
 import { asToolError } from "../core/errors.js";
 import { asTextResult } from "../core/result.js";
 

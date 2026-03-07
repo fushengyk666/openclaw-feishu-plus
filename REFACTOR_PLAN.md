@@ -43,12 +43,12 @@ Use official tools for:
 - basic bitable CRUD
 
 ### Layer 2: feishu-plus (enhancement layer)
-Build and maintain:
-- calendar tools
-- advanced docs helpers
-- advanced permission helpers
-- bitable batch/advanced helpers
-- diagnostics tools
+Build and maintain by **domain** instead of flat capability buckets:
+- `calendar/`
+- `docs/`
+- `bitable/`
+
+Permission capabilities should live under their resource domains instead of remaining a long-term top-level product module.
 
 ---
 
@@ -72,12 +72,10 @@ src/
     client.js
     errors.js
     result.js
-    config.js
-  modules/
+  domains/
     calendar/
-    bitable/
-    perm/
     docs/
+    bitable/
   tools/
 ```
 

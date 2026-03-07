@@ -1,6 +1,6 @@
-import { FeishuPlusCalendarSchema } from "../calendar-schemas.js";
+import { FeishuPlusCalendarSchema } from "../domains/calendar/schemas.js";
 import { createFeishuClient } from "../core/client.js";
-import { runCalendarAction } from "../calendar-actions.js";
+import { runCalendarAction } from "../domains/calendar/actions.js";
 import { asToolError } from "../core/errors.js";
 import { asTextResult } from "../core/result.js";
 

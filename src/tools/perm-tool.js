@@ -1,6 +1,6 @@
-import { FeishuPlusPermSchema } from "../schemas.js";
+import { FeishuPlusDocsPermissionSchema as FeishuPlusPermSchema } from "../domains/docs/schemas.js";
 import { createFeishuClient } from "../core/client.js";
-import { runPermAction } from "../perm-actions.js";
+import { runPermAction } from "../domains/docs/permissions.js";
 import { asToolError } from "../core/errors.js";
 import { asTextResult } from "../core/result.js";
 
