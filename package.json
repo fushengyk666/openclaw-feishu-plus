@@ -1,5 +1,5 @@
 {
-  "name": "openclaw_feishu_plus",
+  "name": "openclaw-feishu-plus",
   "version": "0.1.0",
   "description": "飞书 Dual-Token OpenClaw Plugin — 同一套接口，运行时按 Token 类型自动选择身份",
   "type": "module",

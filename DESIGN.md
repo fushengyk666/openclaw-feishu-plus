@@ -1,6 +1,6 @@
 # 飞书 Dual-Token OpenClaw Plugin — 技术设计文档
 
-> 项目代号：`openclaw_feishu_plus`
+> 项目代号：`openclaw-feishu-plus`
 > 版本：v0.2-draft
 > 作者：Jarvis / 浮生
 > 日期：2026-03-09
@@ -199,7 +199,7 @@
 
 ```text
 OpenClaw
-  └── openclaw_feishu_plus-plugin
+  └── openclaw-feishu-plus-plugin
         ├── channel/             # 飞书消息通道（可选）
         ├── tools/               # 各类能力工具
         ├── core/client.ts       # SDK 客户端工厂
@@ -496,8 +496,8 @@ src/
 
 ### 11.1 独立插件 ID
 建议：
-- plugin id：`openclaw_feishu_plus-plugin`
-- channel id：`openclaw_feishu_plus`
+- plugin id：`openclaw-feishu-plus-plugin`
+- channel id：`openclaw-feishu-plus`
 
 不要占用：
 - `feishu`
@@ -507,7 +507,7 @@ src/
 配置放在：
 
 ```json
-channels.openclaw_feishu_plus
+channels.openclaw-feishu-plus
 ```
 
 不要写到：
@@ -543,7 +543,7 @@ channels.feishu
 ```json
 {
   "channels": {
-    "openclaw_feishu_plus": {
+    "openclaw-feishu-plus": {
       "enabled": true,
       "mode": "full",
       "appId": "cli_xxx",

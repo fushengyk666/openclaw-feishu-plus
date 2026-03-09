@@ -5,10 +5,10 @@
  */
 
 /** 插件唯一标识 */
-export const PLUGIN_ID = "openclaw_feishu_plus";
+export const PLUGIN_ID = "openclaw-feishu-plus";
 
 /** 频道 ID */
-export const CHANNEL_ID = "openclaw_feishu_plus";
+export const CHANNEL_ID = "openclaw-feishu-plus";
 
 /** 配置命名空间 */
-export const CONFIG_NAMESPACE = "openclaw_feishu_plus";
+export const CONFIG_NAMESPACE = "openclaw-feishu-plus";

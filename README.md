@@ -1,4 +1,4 @@
-# openclaw_feishu_plus
+# openclaw-feishu-plus
 
 飞书增强版 OpenClaw 插件 — 同一套接口，运行时按 Token 类型自动选择身份。
 
@@ -27,7 +27,7 @@ npm run build
 // openclaw.json
 {
   "channels": {
-    "openclaw_feishu_plus": {
+    "openclaw-feishu-plus": {
       "enabled": true,
       "mode": "full",          // "full" 或 "tools-only"
       "appId": "cli_xxx",

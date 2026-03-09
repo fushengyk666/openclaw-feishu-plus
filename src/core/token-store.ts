@@ -95,7 +95,7 @@ export class FileTokenStore implements ITokenStore {
   private cache: Record<TokenStoreKey, StoredUserToken> | null = null;
 
   constructor(storagePath: string) {
-    this.filePath = join(storagePath, "openclaw_feishu_plus", "user-tokens.json");
+    this.filePath = join(storagePath, "openclaw-feishu-plus", "user-tokens.json");
   }
 
   private async load(): Promise<Record<TokenStoreKey, StoredUserToken>> {
