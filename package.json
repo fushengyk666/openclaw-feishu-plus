@@ -1,0 +1,25 @@
+{
+  "name": "openclaw_feishu_plus",
+  "version": "0.1.0",
+  "description": "飞书 Dual-Token OpenClaw Plugin — 同一套接口，运行时按 Token 类型自动选择身份",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src/ --ext .ts"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.35.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}
