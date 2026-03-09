@@ -164,17 +164,19 @@ export function registerTools(
 ): void {
   const { config } = context;
 
-  // P1: OAuth 工具（始终注册，用于授权管理）
-  registerOAuthTools(context.oauthTools, (toolDef: ToolDef, execute: ToolExecute) => {
-    registerTool({
-      name: toolDef.name,
-      description: toolDef.description,
-      parameters: toolDef.parameters,
-      execute,
+  // P0: OAuth 工具（默认启用，用于授权管理）
+  if (config.tools.oauth) {
+    registerOAuthTools(context.oauthTools, (toolDef: ToolDef, execute: ToolExecute) => {
+      registerTool({
+        name: toolDef.name,
+        description: toolDef.description,
+        parameters: toolDef.parameters,
+        execute,
+      });
     });
-  });
+  }
 
-  // P1: Doc 工具
+  // P0: Doc 工具（默认启用）
   if (config.tools.doc) {
     registerDocTools(context.docTools, (toolDef: ToolDef, execute: ToolExecute) => {
       registerTool({
@@ -186,7 +188,7 @@ export function registerTools(
     });
   }
 
-  // P1: Calendar 工具
+  // P0: Calendar 工具（默认启用）
   if (config.tools.calendar) {
     registerCalendarTools(context.calendarTools, (toolDef: ToolDef, execute: ToolExecute) => {
       registerTool({
@@ -198,7 +200,7 @@ export function registerTools(
     });
   }
 
-  // 骨架工具（仅在配置中显式启用时注册）
+  // P1: 骨架工具（仅在配置中显式启用时注册）
   if (config.tools.wiki && context.wikiTools) {
     registerWikiTools(context.wikiTools, (toolDef: ToolDef, execute: ToolExecute) => {
       registerTool({

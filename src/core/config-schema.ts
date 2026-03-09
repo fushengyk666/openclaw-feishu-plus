@@ -21,18 +21,31 @@ export const AuthConfigSchema = z.object({
   store: z
     .enum(["keychain-first", "file", "memory"])
     .default("keychain-first"),
+  /** OAuth 回调地址（用于生成授权链接） */
+  redirectUri: z
+    .string()
+    .url()
+    .default("https://open.feishu.cn/oauth/callback"),
 });
 
 // ─── 工具开关 ───
 export const ToolsToggleSchema = z.object({
+  // P0: 已实现的 MVP 工具（默认启用）
   doc: z.boolean().default(true),
-  wiki: z.boolean().default(true),
-  drive: z.boolean().default(true),
-  bitable: z.boolean().default(true),
   calendar: z.boolean().default(true),
-  task: z.boolean().default(true),
-  chat: z.boolean().default(true),
-  perm: z.boolean().default(true),
+
+  // P0: OAuth 授权管理（默认启用）
+  oauth: z.boolean().default(true),
+
+  // P1: 骨架工具（默认禁用，待实现后可启用）
+  wiki: z.boolean().default(false),
+  drive: z.boolean().default(false),
+  bitable: z.boolean().default(false),
+  task: z.boolean().default(false),
+  chat: z.boolean().default(false),
+  perm: z.boolean().default(false),
+
+  // 未实现的功能
   approval: z.boolean().default(false),
   mail: z.boolean().default(false),
   contact: z.boolean().default(false),
@@ -41,15 +54,15 @@ export const ToolsToggleSchema = z.object({
 // ─── 插件主配置 ───
 export const PluginConfigSchema = z.object({
   enabled: z.boolean().default(true),
-  /** 运行模式：full = channel + tools，tools-only = 仅注册工具 */
-  mode: z.enum(["full", "tools-only"]).default("full"),
+  /** 运行模式：full = channel + tools，tools-only = 仅注册工具（默认 tools-only 因为 channel 尚未实现） */
+  mode: z.enum(["full", "tools-only"]).default("tools-only"),
   /** 飞书自建应用 App ID */
   appId: z.string().min(1, "appId is required"),
   /** 飞书自建应用 App Secret */
   appSecret: z.string().min(1, "appSecret is required"),
   /** 域名：feishu（飞书）或 lark（海外） */
   domain: z.enum(["feishu", "lark"]).default("feishu"),
-  /** 消息通道连接方式 */
+  /** 消息通道连接方式（仅 full 模式有效） */
   connectionMode: z.enum(["websocket", "webhook"]).default("websocket"),
   /** 身份策略 */
   auth: AuthConfigSchema.default({}),
