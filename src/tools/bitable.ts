@@ -1,15 +1,10 @@
 /**
- * bitable.ts — 飞书多维表格工具
- *
- * 支持：获取应用信息、列出表格、列出记录、创建记录、更新记录、删除记录
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * bitable.ts — 飞书多维表格工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const BITABLE_TOOL_DEFS = [
   {
@@ -95,204 +90,104 @@ export const BITABLE_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class BitableTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_bitable_get_app":
-        return this.getApp(params, userId);
-
+        return this.getApp(params);
       case "feishu_plus_bitable_list_tables":
-        return this.listTables(params, userId);
-
+        return this.listTables(params);
       case "feishu_plus_bitable_list_records":
-        return this.listRecords(params, userId);
-
+        return this.listRecords(params);
       case "feishu_plus_bitable_create_record":
-        return this.createRecord(params, userId);
-
+        return this.createRecord(params);
       case "feishu_plus_bitable_update_record":
-        return this.updateRecord(params, userId);
-
+        return this.updateRecord(params);
       case "feishu_plus_bitable_delete_record":
-        return this.deleteRecord(params, userId);
-
+        return this.deleteRecord(params);
       default:
         throw new Error(`Unknown bitable tool: ${toolName}`);
     }
   }
 
-  private async getApp(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.app.get",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}`,
-          {
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
+  private async getApp(params: Record<string, unknown>) {
+    return this.client.bitable.v1.app.get({
+      path: { app_token: String(params.app_token) },
+    });
+  }
 
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get bitable app: ${JSON.stringify(error)}`);
-        }
+  private async listTables(params: Record<string, unknown>) {
+    return this.client.bitable.v1.appTable.list({
+      path: { app_token: String(params.app_token) },
+    });
+  }
 
-        return resp.json();
+  private async listRecords(params: Record<string, unknown>) {
+    return this.client.bitable.v1.appTableRecord.list({
+      path: {
+        app_token: String(params.app_token),
+        table_id: String(params.table_id),
+      },
+      params: {
+        page_size: params.page_size ? Number(params.page_size) : 20,
+        page_token: params.page_token ? String(params.page_token) : undefined,
+        view_id: params.view_id ? String(params.view_id) : undefined,
+        filter: params.filter ? String(params.filter) : undefined,
+        sort: params.sort ? String(params.sort) : undefined,
       },
     });
   }
 
-  private async listTables(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.appTable.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}/tables`,
-          {
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list tables: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async createRecord(params: Record<string, unknown>) {
+    const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
+    return this.client.bitable.v1.appTableRecord.create({
+      path: {
+        app_token: String(params.app_token),
+        table_id: String(params.table_id),
       },
+      params: {
+        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+      },
+      data: { fields },
     });
   }
 
-  private async listRecords(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.appTableRecord.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}/tables/${params.table_id}/records`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-        if (params.view_id) url.searchParams.set("view_id", String(params.view_id));
-        if (params.field_ids) url.searchParams.set("field_ids", String(params.field_ids));
-        if (params.sort) url.searchParams.set("sort", String(params.sort));
-        if (params.filter) url.searchParams.set("filter", String(params.filter));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list records: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async updateRecord(params: Record<string, unknown>) {
+    const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
+    return this.client.bitable.v1.appTableRecord.update({
+      path: {
+        app_token: String(params.app_token),
+        table_id: String(params.table_id),
+        record_id: String(params.record_id),
       },
+      data: { fields },
     });
   }
 
-  private async createRecord(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.appTableRecord.create",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {
-          fields: JSON.parse(String(params.fields)),
-        };
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}/tables/${params.table_id}/records`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create record: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
-    });
-  }
-
-  private async updateRecord(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.appTableRecord.update",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}/tables/${params.table_id}/records/${params.record_id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              fields: JSON.parse(String(params.fields)),
-            }),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to update record: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
-    });
-  }
-
-  private async deleteRecord(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "bitable.appTableRecord.delete",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/bitable/v1/apps/${params.app_token}/tables/${params.table_id}/records/${params.record_id}`,
-          {
-            method: "DELETE",
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to delete record: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async deleteRecord(params: Record<string, unknown>) {
+    return this.client.bitable.v1.appTableRecord.delete({
+      path: {
+        app_token: String(params.app_token),
+        table_id: String(params.table_id),
+        record_id: String(params.record_id),
       },
     });
   }
 }
-
-// ─── 注册辅助函数 ───
 
 export function registerBitableTools(
   tools: BitableTools,

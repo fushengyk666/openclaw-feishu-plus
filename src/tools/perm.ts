@@ -1,17 +1,10 @@
 /**
- * perm.ts — 飞书权限管理工具
- *
- * 支持：列出权限、更新权限、删除权限、转移所有权
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
- *
- * 注意：transfer_owner 必须使用用户身份
+ * perm.ts — 飞书云盘权限工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const PERM_TOOL_DEFS = [
   {
@@ -92,189 +85,112 @@ export const PERM_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class PermTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_drive_list_permissions":
-        return this.listPermissions(params, userId);
-
+        return this.listPermissions(params);
       case "feishu_plus_drive_create_permission":
-        return this.createPermission(params, userId);
-
+        return this.createPermission(params);
       case "feishu_plus_drive_update_permission":
-        return this.updatePermission(params, userId);
-
+        return this.updatePermission(params);
       case "feishu_plus_drive_delete_permission":
-        return this.deletePermission(params, userId);
-
+        return this.deletePermission(params);
       case "feishu_plus_drive_transfer_owner":
-        return this.transferOwner(params, userId);
-
+        return this.transferOwner(params);
       default:
         throw new Error(`Unknown perm tool: ${toolName}`);
     }
   }
 
-  private async listPermissions(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.permission.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/drive/v1/permissions/${params.token}/${params.type}`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list permissions: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listPermissions(params: Record<string, unknown>) {
+    return this.client.drive.v1.permissionMember.list({
+      path: { token: String(params.token) },
+      params: {
+        type: String(params.type) as any,
       },
     });
   }
 
-  private async createPermission(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.permission.create",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {
-          member_type: params.member_type,
-          member_id: params.member_id,
-          perm: params.perm,
-          notify: params.notify !== undefined ? params.notify : true,
-        };
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/permissions/${params.token}/${params.type}/members`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create permission: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async createPermission(params: Record<string, unknown>) {
+    return this.client.drive.v1.permissionMember.create({
+      path: { token: String(params.token) },
+      params: {
+        type: String(params.type) as any,
+        need_notification: params.notify !== false,
+      },
+      data: {
+        member_type: String(params.member_type) as any,
+        member_id: String(params.member_id),
+        perm: String(params.perm) as any,
       },
     });
   }
 
-  private async updatePermission(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.permission.update",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {
-          perm: params.perm,
-        };
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/permissions/${params.token}/${params.type}/members/${params.permittee_type}/${params.permittee_id}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to update permission: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async updatePermission(params: Record<string, unknown>) {
+    return this.client.drive.v1.permissionMember.update({
+      path: {
+        token: String(params.token),
+        member_id: String(params.permittee_id),
+      },
+      params: {
+        type: String(params.type) as any,
+        need_notification: false,
+      },
+      data: {
+        member_type: String(params.permittee_type) as any,
+        perm: String(params.perm) as any,
       },
     });
   }
 
-  private async deletePermission(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.permission.delete",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/permissions/${params.token}/${params.type}/members/${params.permittee_type}/${params.permittee_id}`
-        );
-        if (params.user_id_type) url.searchParams.set("user_id_type", String(params.user_id_type));
-
-        const resp = await fetch(url.toString(), {
-          method: "DELETE",
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to delete permission: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async deletePermission(params: Record<string, unknown>) {
+    return this.client.drive.v1.permissionMember.delete({
+      path: {
+        token: String(params.token),
+        member_id: String(params.permittee_id),
+      },
+      params: {
+        type: String(params.type) as any,
+        member_type: String(params.permittee_type) as any,
       },
     });
   }
 
-  private async transferOwner(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.permission.transferOwner",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {
-          to_user_id: params.to_user_id,
-        };
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/permissions/${params.token}/${params.type}/owner`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to transfer owner: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
-    });
+  private async transferOwner(params: Record<string, unknown>) {
+    // SDK doesn't have a direct transfer method; use permissionPublic or manual approach
+    const domain = this.config.domain === "lark" ? "lark" : "feishu";
+    // Fall back to REST API for owner transfer
+    const resp = await fetch(
+      `https://open.${domain}.cn/open-apis/drive/v1/permissions/${params.token}/members/transfer_owner`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          member_type: "user",
+          member_id: String(params.to_user_id),
+        }),
+      }
+    );
+    return resp.json();
   }
 }
-
-// ─── 注册辅助函数 ───
 
 export function registerPermTools(
   tools: PermTools,

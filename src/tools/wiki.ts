@@ -1,15 +1,10 @@
 /**
- * wiki.ts — 飞书 Wiki 知识库工具
- *
- * 支持：列出知识库空间、获取空间节点、列出节点、创建知识库空间
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * wiki.ts — 飞书 Wiki 知识库工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const WIKI_TOOL_DEFS = [
   {
@@ -63,141 +58,73 @@ export const WIKI_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class WikiTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_wiki_list_spaces":
-        return this.listSpaces(params, userId);
-
+        return this.listSpaces(params);
       case "feishu_plus_wiki_get_node":
-        return this.getNode(params, userId);
-
+        return this.getNode(params);
       case "feishu_plus_wiki_list_nodes":
-        return this.listNodes(params, userId);
-
+        return this.listNodes(params);
       case "feishu_plus_wiki_create_space":
-        return this.createSpace(params, userId);
-
+        return this.createSpace(params);
       default:
         throw new Error(`Unknown wiki tool: ${toolName}`);
     }
   }
 
-  private async listSpaces(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "wiki.space.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/wiki/v2/spaces`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list wiki spaces: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listSpaces(params: Record<string, unknown>) {
+    return this.client.wiki.v2.space.list({
+      params: {
+        page_size: params.page_size ? Number(params.page_size) : 50,
+        page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
   }
 
-  private async getNode(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "wiki.space.getNode",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/wiki/v2/spaces/get_node`);
-        url.searchParams.set("token", String(params.token));
-        if (params.user_id_type) url.searchParams.set("user_id_type", String(params.user_id_type));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get wiki node: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async getNode(params: Record<string, unknown>) {
+    return this.client.wiki.v2.space.getNode({
+      params: {
+        token: String(params.token),
       },
     });
   }
 
-  private async listNodes(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "wiki.spaceNode.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/wiki/v2/spaces/${params.space_id}/nodes`);
-        if (params.parent_node_token) url.searchParams.set("parent_node_token", String(params.parent_node_token));
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list wiki nodes: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listNodes(params: Record<string, unknown>) {
+    return this.client.wiki.v2.spaceNode.list({
+      path: { space_id: String(params.space_id) },
+      params: {
+        parent_node_token: params.parent_node_token ? String(params.parent_node_token) : undefined,
+        page_size: params.page_size ? Number(params.page_size) : 50,
+        page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
   }
 
-  private async createSpace(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "wiki.space.create",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/wiki/v2/spaces`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: params.name,
-              description: params.description || "",
-            }),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create wiki space: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async createSpace(params: Record<string, unknown>) {
+    return this.client.wiki.v2.space.create({
+      data: {
+        name: String(params.name),
+        description: params.description ? String(params.description) : undefined,
       },
     });
   }
 }
-
-// ─── 注册辅助函数 ───
 
 export function registerWikiTools(
   tools: WikiTools,

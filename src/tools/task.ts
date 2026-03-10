@@ -1,15 +1,10 @@
 /**
- * task.ts — 飞书任务工具
- *
- * 支持：获取任务、列出任务、创建任务、更新任务、完成任务
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * task.ts — 飞书任务工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const TASK_TOOL_DEFS = [
   {
@@ -32,8 +27,8 @@ export const TASK_TOOL_DEFS = [
       properties: {
         page_size: { type: "number", description: "每页数量（默认 50）" },
         page_token: { type: "string", description: "分页 token" },
-        user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id）" },
         completed: { type: "boolean", description: "是否已完成" },
+        user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id）" },
       },
     },
   },
@@ -63,9 +58,8 @@ export const TASK_TOOL_DEFS = [
         summary: { type: "string", description: "任务标题" },
         description: { type: "string", description: "任务描述" },
         due_time: { type: "string", description: "截止时间（Unix 时间戳，秒）" },
-        assignee: { type: "string", description: "负责人用户 ID" },
-        follower_ids: { type: "string", description: "关注者用户 ID 列表（JSON 数组字符串）" },
         completed: { type: "boolean", description: "是否完成" },
+        assignee: { type: "string", description: "负责人用户 ID" },
         user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id）" },
       },
       required: ["task_id"],
@@ -85,191 +79,104 @@ export const TASK_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class TaskTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_task_get":
-        return this.get(params, userId);
-
+        return this.getTask(params);
       case "feishu_plus_task_list":
-        return this.list(params, userId);
-
+        return this.listTasks(params);
       case "feishu_plus_task_create":
-        return this.create(params, userId);
-
+        return this.createTask(params);
       case "feishu_plus_task_update":
-        return this.update(params, userId);
-
+        return this.updateTask(params);
       case "feishu_plus_task_complete":
-        return this.complete(params, userId);
-
+        return this.completeTask(params);
       default:
         throw new Error(`Unknown task tool: ${toolName}`);
     }
   }
 
-  private async get(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "task.task.get",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/task/v1/tasks/${params.task_id}`);
-        if (params.user_id_type) url.searchParams.set("user_id_type", String(params.user_id_type));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get task: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async getTask(params: Record<string, unknown>) {
+    return this.client.task.v2.task.get({
+      path: { task_guid: String(params.task_id) },
+      params: {
+        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
       },
     });
   }
 
-  private async list(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "task.task.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/task/v1/tasks`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-        if (params.user_id_type) url.searchParams.set("user_id_type", String(params.user_id_type));
-        if (params.completed !== undefined) url.searchParams.set("completed", String(params.completed));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list tasks: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listTasks(params: Record<string, unknown>) {
+    return this.client.task.v2.task.list({
+      params: {
+        page_size: params.page_size ? Number(params.page_size) : 50,
+        page_token: params.page_token ? String(params.page_token) : undefined,
+        completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
+        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
       },
     });
   }
 
-  private async create(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "task.task.create",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {
-          summary: params.summary,
-        };
-        if (params.description) body.description = params.description;
-        if (params.due_time) body.due_time = params.due_time;
-        if (params.assignee) body.assignee = params.assignee;
-        if (params.follower_ids) body.follower_ids = JSON.parse(String(params.follower_ids));
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
+  private async createTask(params: Record<string, unknown>) {
+    const data: any = {
+      summary: String(params.summary),
+    };
+    if (params.description) data.description = String(params.description);
+    if (params.due_time) data.due = { timestamp: String(params.due_time) };
+    if (params.assignee) data.members = [{ id: String(params.assignee), role: "assignee" }];
 
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/task/v1/tasks`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
+    return this.client.task.v2.task.create({
+      params: {
+        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+      },
+      data,
+    });
+  }
 
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create task: ${JSON.stringify(error)}`);
-        }
+  private async updateTask(params: Record<string, unknown>) {
+    const data: any = {};
+    const updateFields: string[] = [];
 
-        return resp.json();
+    if (params.summary !== undefined) { data.summary = String(params.summary); updateFields.push("summary"); }
+    if (params.description !== undefined) { data.description = String(params.description); updateFields.push("description"); }
+    if (params.due_time !== undefined) { data.due = { timestamp: String(params.due_time) }; updateFields.push("due"); }
+
+    return this.client.task.v2.task.patch({
+      path: { task_guid: String(params.task_id) },
+      params: {
+        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+      },
+      data: {
+        task: data,
+        update_fields: updateFields,
       },
     });
   }
 
-  private async update(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "task.task.update",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {};
-        if (params.summary) body.summary = params.summary;
-        if (params.description) body.description = params.description;
-        if (params.due_time) body.due_time = params.due_time;
-        if (params.assignee) body.assignee = params.assignee;
-        if (params.follower_ids) body.follower_ids = JSON.parse(String(params.follower_ids));
-        if (params.completed !== undefined) body.completed = params.completed;
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/task/v1/tasks/${params.task_id}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to update task: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
-    });
-  }
-
-  private async complete(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "task.task.complete",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const body: Record<string, unknown> = {};
-        if (params.user_id_type) body.user_id_type = params.user_id_type;
-
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/task/v1/tasks/${params.task_id}/complete`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to complete task: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async completeTask(params: Record<string, unknown>) {
+    return this.client.task.v2.task.patch({
+      path: { task_guid: String(params.task_id) },
+      data: {
+        task: { completed_at: String(Math.floor(Date.now() / 1000)) },
+        update_fields: ["completed_at"],
       },
     });
   }
 }
-
-// ─── 注册辅助函数 ───
 
 export function registerTaskTools(
   tools: TaskTools,

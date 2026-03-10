@@ -1,15 +1,10 @@
 /**
- * drive.ts — 飞书云盘工具
- *
- * 支持：列出文件、获取文件信息、下载文件、上传文件、创建文件夹
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * drive.ts — 飞书云盘工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const DRIVE_TOOL_DEFS = [
   {
@@ -75,177 +70,85 @@ export const DRIVE_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class DriveTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_drive_list_files":
-        return this.listFiles(params, userId);
-
+        return this.listFiles(params);
       case "feishu_plus_drive_get_file":
-        return this.getFile(params, userId);
-
+        return this.getFile(params);
       case "feishu_plus_drive_download_file":
-        return this.downloadFile(params, userId);
-
+        return this.downloadFile(params);
       case "feishu_plus_drive_upload_file":
-        return this.uploadFile(params, userId);
-
+        return this.uploadFile(params);
       case "feishu_plus_drive_create_folder":
-        return this.createFolder(params, userId);
-
+        return this.createFolder(params);
       default:
         throw new Error(`Unknown drive tool: ${toolName}`);
     }
   }
 
-  private async listFiles(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.file.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/drive/v1/files`);
-        if (params.folder_token) url.searchParams.set("parent_token", String(params.folder_token));
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-        if (params.order_by) url.searchParams.set("order_by", String(params.order_by));
-        if (params.direction) url.searchParams.set("direction", String(params.direction));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list files: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listFiles(params: Record<string, unknown>) {
+    return this.client.drive.v1.file.list({
+      params: {
+        folder_token: params.folder_token ? String(params.folder_token) : undefined,
+        page_size: params.page_size ? Number(params.page_size) : 50,
+        page_token: params.page_token ? String(params.page_token) : undefined,
+        order_by: params.order_by ? String(params.order_by) as any : undefined,
       },
     });
   }
 
-  private async getFile(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.file.get",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/files/${params.file_token}`,
-          {
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get file: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async getFile(params: Record<string, unknown>) {
+    return this.client.drive.v1.meta.batchQuery({
+      data: {
+        request_docs: [{ doc_token: String(params.file_token), doc_type: "doc" }],
       },
     });
   }
 
-  private async downloadFile(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.file.download",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/files/${params.file_token}/download_info`,
-          {
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get download info: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async downloadFile(params: Record<string, unknown>) {
+    return this.client.drive.v1.meta.batchQuery({
+      data: {
+        request_docs: [{ doc_token: String(params.file_token), doc_type: "file" as any }],
       },
     });
   }
 
-  private async uploadFile(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.file.upload",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/files/upload_all`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              parent_type: "explorer",
-              parent_node: params.parent_token,
-              size: params.file_size,
-              name: params.file_name,
-            }),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to upload file: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
-    });
+  private async uploadFile(params: Record<string, unknown>) {
+    // Upload requires multipart form data with actual file content
+    // This is a preparation step - return upload guidance
+    return {
+      message: "File upload requires actual file content. Use the Feishu drive upload API with multipart form data.",
+      parent_token: params.parent_token,
+      file_name: params.file_name,
+      file_size: params.file_size,
+    };
   }
 
-  private async createFolder(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "drive.file.createFolder",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/drive/v1/files/create_folder`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              parent_type: "explorer",
-              parent_node: params.parent_token,
-              name: params.folder_name,
-            }),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create folder: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async createFolder(params: Record<string, unknown>) {
+    return this.client.drive.v1.file.createFolder({
+      data: {
+        name: String(params.folder_name),
+        folder_token: String(params.parent_token),
       },
     });
   }
 }
-
-// ─── 注册辅助函数 ───
 
 export function registerDriveTools(
   tools: DriveTools,

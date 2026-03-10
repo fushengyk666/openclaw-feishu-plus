@@ -1,15 +1,10 @@
 /**
- * doc.ts — 飞书云文档工具
- *
- * 支持：创建、读取、更新、删除文档及文档块
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * doc.ts — 飞书云文档工具 (Lark SDK)
  */
 
-import { executeFeishuRequest } from "../core/request-executor.js";
+import * as lark from "@larksuiteoapi/node-sdk";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
-
-// ─── 工具定义 ───
 
 export const DOC_TOOL_DEFS = [
   {
@@ -50,115 +45,60 @@ export const DOC_TOOL_DEFS = [
   },
 ];
 
-// ─── 工具执行器类 ───
-
 export class DocTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
-  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_doc_create":
-        return this.create(params, userId);
-
+        return this.create(params);
       case "feishu_plus_doc_get":
-        return this.get(params, userId);
-
+        return this.get(params);
       case "feishu_plus_doc_list_blocks":
-        return this.listBlocks(params, userId);
-
+        return this.listBlocks(params);
       default:
         throw new Error(`Unknown doc tool: ${toolName}`);
     }
   }
 
-  private async create(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "docx.document.create",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/docx/v1/documents`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": authorizationHeader,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              title: params.title,
-              folder_token: params.folder_token,
-            }),
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to create document: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async create(params: Record<string, unknown>) {
+    return this.client.docx.v1.document.create({
+      data: {
+        title: String(params.title ?? ""),
+        folder_token: params.folder_token ? String(params.folder_token) : undefined,
       },
     });
   }
 
-  private async get(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "docx.document.get",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/docx/v1/documents/${params.document_id}`,
-          {
-            headers: {
-              "Authorization": authorizationHeader,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to get document: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
-      },
+  private async get(params: Record<string, unknown>) {
+    return this.client.docx.v1.document.get({
+      path: { document_id: String(params.document_id) },
     });
   }
 
-  private async listBlocks(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "docx.documentBlock.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/docx/v1/documents/${params.document_id}/blocks`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list blocks: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listBlocks(params: Record<string, unknown>) {
+    return this.client.docx.v1.documentBlock.list({
+      path: { document_id: String(params.document_id) },
+      params: {
+        page_size: params.page_size ? Number(params.page_size) : 50,
+        page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
   }
 }
 
-// ─── 注册辅助函数（用于 index.ts 统一注册） ───
-
-/**
- * 注册 Doc 工具到 OpenClaw
- */
 export function registerDocTools(
   tools: DocTools,
   registerTool: (toolDef: typeof DOC_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
