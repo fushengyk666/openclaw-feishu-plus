@@ -21,6 +21,7 @@ import { BitableTools, registerBitableTools } from "./src/tools/bitable.js";
 import { TaskTools, registerTaskTools } from "./src/tools/task.js";
 import { ChatTools, registerChatTools } from "./src/tools/chat.js";
 import { PermTools, registerPermTools } from "./src/tools/perm.js";
+import { SheetsTools, registerSheetsTools } from "./src/tools/sheets.js";
 import { feishuPlusPlugin } from "./src/channel/plugin.js";
 import { setFeishuPlusRuntime } from "./src/channel/runtime.js";
 
@@ -87,6 +88,7 @@ const plugin = {
     registerTaskTools(new TaskTools(pluginConfig, tokenStore), reg);
     registerChatTools(new ChatTools(pluginConfig, tokenStore), reg);
     registerPermTools(new PermTools(pluginConfig, tokenStore), reg);
+    registerSheetsTools(new SheetsTools(pluginConfig, tokenStore), reg);
   },
 };
 

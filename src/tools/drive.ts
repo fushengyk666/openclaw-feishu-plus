@@ -68,6 +68,45 @@ export const DRIVE_TOOL_DEFS = [
       required: ["parent_token", "folder_name"],
     },
   },
+  {
+    name: "feishu_plus_drive_delete_file",
+    description: "删除文件",
+    parameters: {
+      type: "object",
+      properties: {
+        file_token: { type: "string", description: "文件 token" },
+        type: { type: "string", description: "文件类型（file/doc/docx/bitable/sheet/mindnote/slides）" },
+      },
+      required: ["file_token", "type"],
+    },
+  },
+  {
+    name: "feishu_plus_drive_copy_file",
+    description: "复制文件",
+    parameters: {
+      type: "object",
+      properties: {
+        file_token: { type: "string", description: "源文件 token" },
+        name: { type: "string", description: "新文件名" },
+        type: { type: "string", description: "文件类型（file/doc/docx/bitable/sheet/mindnote/slides）" },
+        folder_token: { type: "string", description: "目标文件夹 token" },
+      },
+      required: ["file_token", "name", "type", "folder_token"],
+    },
+  },
+  {
+    name: "feishu_plus_drive_move_file",
+    description: "移动文件",
+    parameters: {
+      type: "object",
+      properties: {
+        file_token: { type: "string", description: "文件 token" },
+        type: { type: "string", description: "文件类型（file/doc/docx/bitable/sheet/mindnote/slides）" },
+        folder_token: { type: "string", description: "目标文件夹 token" },
+      },
+      required: ["file_token", "type", "folder_token"],
+    },
+  },
 ];
 
 export class DriveTools {
@@ -97,6 +136,12 @@ export class DriveTools {
         return this.uploadFile(params);
       case "feishu_plus_drive_create_folder":
         return this.createFolder(params);
+      case "feishu_plus_drive_delete_file":
+        return this.deleteFile(params);
+      case "feishu_plus_drive_copy_file":
+        return this.copyFile(params);
+      case "feishu_plus_drive_move_file":
+        return this.moveFile(params);
       default:
         throw new Error(`Unknown drive tool: ${toolName}`);
     }
@@ -145,6 +190,34 @@ export class DriveTools {
       data: {
         name: String(params.folder_name),
         folder_token: String(params.parent_token),
+      },
+    });
+  }
+
+  private async deleteFile(params: Record<string, unknown>) {
+    return this.client.drive.v1.file.delete({
+      path: { file_token: String(params.file_token) },
+      params: { type: String(params.type) as any },
+    });
+  }
+
+  private async copyFile(params: Record<string, unknown>) {
+    return this.client.drive.v1.file.copy({
+      path: { file_token: String(params.file_token) },
+      data: {
+        name: String(params.name),
+        type: String(params.type) as any,
+        folder_token: String(params.folder_token),
+      },
+    });
+  }
+
+  private async moveFile(params: Record<string, unknown>) {
+    return this.client.drive.v1.file.move({
+      path: { file_token: String(params.file_token) },
+      data: {
+        type: String(params.type) as any,
+        folder_token: String(params.folder_token),
       },
     });
   }

@@ -43,6 +43,17 @@ export const DOC_TOOL_DEFS = [
       required: ["document_id"],
     },
   },
+  {
+    name: "feishu_plus_doc_raw_content",
+    description: "获取文档纯文本内容",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "文档 ID" },
+      },
+      required: ["document_id"],
+    },
+  },
 ];
 
 export class DocTools {
@@ -68,6 +79,8 @@ export class DocTools {
         return this.get(params);
       case "feishu_plus_doc_list_blocks":
         return this.listBlocks(params);
+      case "feishu_plus_doc_raw_content":
+        return this.rawContent(params);
       default:
         throw new Error(`Unknown doc tool: ${toolName}`);
     }
@@ -95,6 +108,12 @@ export class DocTools {
         page_size: params.page_size ? Number(params.page_size) : 50,
         page_token: params.page_token ? String(params.page_token) : undefined,
       },
+    });
+  }
+
+  private async rawContent(params: Record<string, unknown>) {
+    return this.client.docx.v1.document.rawContent({
+      path: { document_id: String(params.document_id) },
     });
   }
 }

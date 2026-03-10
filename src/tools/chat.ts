@@ -61,6 +61,54 @@ export const CHAT_TOOL_DEFS = [
       required: ["chat_id"],
     },
   },
+  {
+    name: "feishu_plus_message_reply",
+    description: "回复消息",
+    parameters: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "要回复的消息 ID" },
+        msg_type: { type: "string", description: "消息类型（text/post/image等）" },
+        content: { type: "string", description: "消息内容（JSON 字符串）" },
+      },
+      required: ["message_id", "msg_type", "content"],
+    },
+  },
+  {
+    name: "feishu_plus_message_delete",
+    description: "撤回消息",
+    parameters: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "消息 ID" },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "feishu_plus_message_forward",
+    description: "转发消息",
+    parameters: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "消息 ID" },
+        receive_id: { type: "string", description: "接收者 ID（chat_id 或 open_id）" },
+        receive_id_type: { type: "string", description: "接收者类型（chat_id/open_id）" },
+      },
+      required: ["message_id", "receive_id"],
+    },
+  },
+  {
+    name: "feishu_plus_message_get",
+    description: "获取消息详情",
+    parameters: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "消息 ID" },
+      },
+      required: ["message_id"],
+    },
+  },
 ];
 
 export class ChatTools {
@@ -88,6 +136,14 @@ export class ChatTools {
         return this.sendMessage(params);
       case "feishu_plus_message_list":
         return this.listMessages(params);
+      case "feishu_plus_message_reply":
+        return this.replyMessage(params);
+      case "feishu_plus_message_delete":
+        return this.deleteMessage(params);
+      case "feishu_plus_message_forward":
+        return this.forwardMessage(params);
+      case "feishu_plus_message_get":
+        return this.getMessage(params);
       default:
         throw new Error(`Unknown chat tool: ${toolName}`);
     }
@@ -129,6 +185,40 @@ export class ChatTools {
         page_token: params.page_token ? String(params.page_token) : undefined,
         sort_type: params.sort_type ? String(params.sort_type) as any : undefined,
       },
+    });
+  }
+
+  private async replyMessage(params: Record<string, unknown>) {
+    return this.client.im.message.reply({
+      path: { message_id: String(params.message_id) },
+      data: {
+        msg_type: String(params.msg_type) as any,
+        content: String(params.content),
+      },
+    });
+  }
+
+  private async deleteMessage(params: Record<string, unknown>) {
+    return this.client.im.message.delete({
+      path: { message_id: String(params.message_id) },
+    });
+  }
+
+  private async forwardMessage(params: Record<string, unknown>) {
+    return this.client.im.message.forward({
+      path: { message_id: String(params.message_id) },
+      params: {
+        receive_id_type: (params.receive_id_type ? String(params.receive_id_type) : "chat_id") as any,
+      },
+      data: {
+        receive_id: String(params.receive_id),
+      },
+    });
+  }
+
+  private async getMessage(params: Record<string, unknown>) {
+    return this.client.im.message.get({
+      path: { message_id: String(params.message_id) },
     });
   }
 }
