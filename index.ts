@@ -65,11 +65,14 @@ const plugin = {
     
     const reg = (toolDef: any, execute: any) => {
       if (api.registerTool) {
+        const wrappedExecute = async (toolUseId: string, params: any, ctx: any, callback: any) => {
+          return execute(params);
+        };
         api.registerTool({
           name: toolDef.name,
           description: toolDef.description,
           parameters: toolDef.parameters,
-          execute,
+          execute: wrappedExecute,
         });
         console.log(`[feishu-plus] registered tool: ${toolDef.name}`);
       }
