@@ -87,7 +87,7 @@ export class CalendarTools {
   private async list(params: Record<string, unknown>) {
     return this.client.calendar.v4.calendar.list({
       params: {
-        page_size: params.page_size ? Number(params.page_size) : undefined,
+        page_size: params.page_size ? Math.max(Number(params.page_size), 50) : 50,
         page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
@@ -102,7 +102,7 @@ export class CalendarTools {
         params: {
           start_time: params.start_time ? String(params.start_time) : undefined,
           end_time: params.end_time ? String(params.end_time) : undefined,
-          page_size: params.page_size ? Number(params.page_size) : undefined,
+          page_size: params.page_size ? Math.max(Number(params.page_size), 50) : 50,
           page_token: params.page_token ? String(params.page_token) : undefined,
         },
       });
