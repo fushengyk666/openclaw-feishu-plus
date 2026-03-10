@@ -694,20 +694,134 @@ async function handleInboundMessage(params: {
       }
     };
 
+    // ── Streaming card constants ──
+    const STREAMING_ELEMENT_ID = "streaming_content";
+    const useStreaming = feishuCfg.streaming === true && isDirect; // streaming only in DM for now
+    let cardKitCardId: string | null = null;
+    let cardKitSequence = 0;
+    let accumulatedText = "";
+    let cardMessageId: string | null = null;
+
+    // ── CardKit helpers ──
+    const createStreamingCard = async (): Promise<boolean> => {
+      try {
+        const thinkingCard = {
+          schema: "2.0",
+          config: { streaming_mode: true, summary: { content: "思考中..." } },
+          body: {
+            elements: [
+              {
+                tag: "markdown",
+                content: "",
+                text_align: "left",
+                text_size: "normal_v2",
+                element_id: STREAMING_ELEMENT_ID,
+              },
+            ],
+          },
+        };
+
+        // Step 1: Create card entity
+        const createResp = await client.cardkit.v1.card.create({
+          data: { type: "card_json", data: JSON.stringify(thinkingCard) },
+        });
+        cardKitCardId = (createResp?.data as any)?.card_id ?? null;
+        if (!cardKitCardId) return false;
+        cardKitSequence = 1;
+
+        // Step 2: Send IM message referencing card_id
+        const targetId = isDirect ? senderOpenId : chatId;
+        const receiveIdType = isDirect ? "open_id" : "chat_id";
+        const sendResp = await client.im.message.create({
+          params: { receive_id_type: receiveIdType },
+          data: {
+            receive_id: targetId,
+            msg_type: "interactive",
+            content: JSON.stringify({ type: "card", data: { card_id: cardKitCardId } }),
+          },
+        });
+        cardMessageId = (sendResp?.data as any)?.message_id ?? null;
+        logFn(`feishu-plus[${accountId}]: streaming card created (card_id=${cardKitCardId}, msg_id=${cardMessageId})`);
+        return true;
+      } catch (err) {
+        errorFn(`feishu-plus[${accountId}]: failed to create streaming card: ${String(err)}`);
+        return false;
+      }
+    };
+
+    const updateStreamingContent = async (text: string) => {
+      if (!cardKitCardId) return;
+      try {
+        cardKitSequence++;
+        await (client.cardkit as any).v1.cardElement.content({
+          data: { content: text, sequence: cardKitSequence },
+          path: { card_id: cardKitCardId, element_id: STREAMING_ELEMENT_ID },
+        });
+      } catch (err) {
+        errorFn(`feishu-plus[${accountId}]: stream update failed: ${String(err)}`);
+      }
+    };
+
+    const finalizeCard = async (fullText: string) => {
+      if (!cardKitCardId) return;
+      try {
+        // Build final card
+        const finalCard = {
+          schema: "2.0",
+          config: { streaming_mode: false },
+          body: {
+            elements: [
+              { tag: "markdown", content: fullText, text_align: "left", text_size: "normal_v2" },
+            ],
+          },
+        };
+        cardKitSequence++;
+        await (client.cardkit as any).v1.card.update({
+          data: { card: { type: "card_json", data: JSON.stringify(finalCard) }, sequence: cardKitSequence },
+          path: { card_id: cardKitCardId },
+        });
+        // Close streaming mode
+        cardKitSequence++;
+        await (client.cardkit as any).v1.card.settings({
+          data: { settings: JSON.stringify({ streaming_mode: false }), sequence: cardKitSequence },
+          path: { card_id: cardKitCardId },
+        });
+      } catch (err) {
+        errorFn(`feishu-plus[${accountId}]: finalize card failed: ${String(err)}`);
+      }
+    };
+
     // ── Dispatch to agent ──
+    let streamingCardCreated = false;
     try {
       const result = await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg,
         dispatcherOptions: {
           deliver: async (payload: any, info: any) => {
-            logFn(`feishu-plus[${accountId}]: deliver callback fired (kind=${info?.kind}), payload keys: ${Object.keys(payload || {}).join(",")}`);
             const text = payload?.text ?? payload?.body ?? payload?.content ?? "";
-            if (text?.trim()) {
-              logFn(`feishu-plus[${accountId}]: sending reply (${text.length} chars): ${text.slice(0, 80)}`);
-              await sendReply(text);
+            if (!text?.trim()) return;
+
+            if (useStreaming) {
+              // Streaming card mode
+              if (!streamingCardCreated) {
+                streamingCardCreated = await createStreamingCard();
+              }
+              if (streamingCardCreated && cardKitCardId) {
+                accumulatedText += text;
+                if (info?.kind === "final") {
+                  await updateStreamingContent(accumulatedText);
+                  await finalizeCard(accumulatedText);
+                } else {
+                  await updateStreamingContent(accumulatedText);
+                }
+              } else {
+                // Fallback to plain text if card creation failed
+                await sendReply(text);
+              }
             } else {
-              logFn(`feishu-plus[${accountId}]: deliver called but no text in payload`);
+              // Static mode: send plain text
+              await sendReply(text);
             }
           },
         },
