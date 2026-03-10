@@ -568,16 +568,22 @@ async function startWebSocketListener(params: {
     loggerLevel: lark.LoggerLevel.warn,
   });
 
-  await wsClient.start({ eventDispatcher });
+  // Return a promise that stays pending until abortSignal fires.
+  // Gateway treats promise resolution as "channel exited" and triggers restart.
+  return new Promise<void>((resolve) => {
+    const handleAbort = () => {
+      wsClient.close({ force: true });
+      resolve();
+    };
 
-  // Cleanup on abort
-  abortSignal.addEventListener("abort", () => {
-    wsClient.close({ force: true });
+    if (abortSignal.aborted) {
+      handleAbort();
+      return;
+    }
+
+    abortSignal.addEventListener("abort", handleAbort, { once: true });
+    wsClient.start({ eventDispatcher });
   });
-
-  return {
-    close: async () => wsClient.close({ force: true }),
-  };
 }
 
 // ─── Webhook Listener ───
@@ -613,8 +619,10 @@ async function startWebhookListener(params: {
 
   // Use native http instead of express to avoid extra dependency
   const http = await import("http");
-  const server: any = await new Promise((resolve, reject) => {
-    const s = http.createServer((req: any, res: any) => {
+
+  // Return a promise that stays pending until abortSignal fires.
+  return new Promise<void>((resolve, reject) => {
+    const server = http.createServer((req: any, res: any) => {
       if (req.url?.startsWith(webhookPath)) {
         expressHandler(req, res);
       } else {
@@ -622,18 +630,24 @@ async function startWebhookListener(params: {
         res.end("Not Found");
       }
     });
-    s.listen(port, host, () => resolve(s));
-    s.on("error", reject);
-  });
 
-  abortSignal.addEventListener("abort", () => {
-    server.close();
-  });
-
-  return {
-    close: async () => {
+    const handleAbort = () => {
       server.close();
-    },
-    expressHandler,
-  };
+      resolve();
+    };
+
+    if (abortSignal.aborted) {
+      resolve();
+      return;
+    }
+
+    abortSignal.addEventListener("abort", handleAbort, { once: true });
+    server.listen(port, host, () => {
+      /* server running, promise stays pending until abort */
+    });
+    server.on("error", (err: any) => {
+      abortSignal.removeEventListener("abort", handleAbort);
+      reject(err);
+    });
+  });
 }

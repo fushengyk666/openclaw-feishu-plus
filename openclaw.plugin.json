@@ -2,47 +2,14 @@
   "id": "openclaw-feishu-plus",
   "name": "OpenClaw Feishu Plus",
   "version": "0.1.0",
-  "description": "飞书增强插件：同一套接口，运行时按 Token 类型自动选择身份（user-if-available-else-tenant）",
-  "type": "module",
-  "files": [
-    "**/*"
-  ],
-  "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.59.0",
-    "@sinclair/typebox": "0.34.48",
-    "image-size": "^2.0.2",
-    "zod": "^3.23.0"
-  },
-  "openclaw": {
-    "extensions": [
-      "./index.js"
-    ],
-    "channel": {
-      "id": "openclaw-feishu-plus",
-      "label": "Feishu Plus",
-      "selectionLabel": "Feishu/Lark (飞书)",
-      "docsPath": "/channels/feishu-plus",
-      "docsLabel": "feishu-plus",
-      "blurb": "飞书/Lark 企业消息与文档工具，支持 dual-token 自动切换。",
-      "aliases": [
-        "lark",
-        "feishu-plus"
-      ],
-      "order": 36
-    },
-    "install": {
-      "npmSpec": "openclaw-feishu-plus",
-      "localPath": "extensions/feishu-plus",
-      "defaultChoice": "local"
-    }
-  },
-  "main": "index.js",
-  "types": "index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./index.d.ts",
-      "import": "./index.js",
-      "default": "./index.js"
-    }
+  "description": "飞书增强插件：dual-token 自动切换（user-if-available-else-tenant）",
+  "channels": ["openclaw-feishu-plus"],
+  "skills": ["./skills"],
+  "entry": "dist/index.js",
+  "configNamespace": "openclaw-feishu-plus",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
   }
 }
