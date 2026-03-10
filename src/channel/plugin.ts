@@ -743,8 +743,9 @@ async function handleInboundMessage(params: {
         cardMessageId = (sendResp?.data as any)?.message_id ?? null;
         logFn(`feishu-plus[${accountId}]: streaming card created (card_id=${cardKitCardId}, msg_id=${cardMessageId})`);
         return true;
-      } catch (err) {
-        errorFn(`feishu-plus[${accountId}]: failed to create streaming card: ${String(err)}`);
+      } catch (err: any) {
+        const detail = err?.response?.data ? JSON.stringify(err.response.data) : String(err);
+        errorFn(`feishu-plus[${accountId}]: failed to create streaming card: ${detail}`);
         return false;
       }
     };

@@ -2,9 +2,10 @@
  * calendar.ts — 飞书日历工具
  *
  * 支持：列出日历、列出事件、查询忙闲状态
- * 身份：由 request-executor 自动决定（user-if-available-else-tenant）
+ * 使用 Lark SDK 调用，由 request-executor 提供 token
  */
 
+import * as lark from "@larksuiteoapi/node-sdk";
 import { executeFeishuRequest } from "../core/request-executor.js";
 import type { PluginConfig } from "../core/config-schema.js";
 import type { ITokenStore } from "../core/token-store.js";
@@ -56,88 +57,63 @@ export const CALENDAR_TOOL_DEFS = [
 // ─── 工具执行器类 ───
 
 export class CalendarTools {
+  private client: InstanceType<typeof lark.Client>;
+
   constructor(
     private config: PluginConfig,
     private tokenStore: ITokenStore
-  ) {}
+  ) {
+    this.client = new lark.Client({
+      appId: config.appId,
+      appSecret: config.appSecret,
+      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      disableTokenCache: false,
+    });
+  }
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_calendar_list":
-        return this.list(params, userId);
-
+        return this.list(params);
       case "feishu_calendar_event_list":
-        return this.listEvents(params, userId);
-
+        return this.listEvents(params);
       case "feishu_calendar_freebusy":
-        return this.getFreeBusy(params, userId);
-
+        return this.getFreeBusy(params);
       default:
         throw new Error(`Unknown calendar tool: ${toolName}`);
     }
   }
 
-  private async list(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "calendar.calendar.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(`https://open.${this.config.domain}.cn/open-apis/calendar/v4/calendars`);
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list calendars: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async list(params: Record<string, unknown>) {
+    return this.client.calendar.v4.calendar.list({
+      params: {
+        page_size: params.page_size ? Number(params.page_size) : undefined,
+        page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
   }
 
-  private async listEvents(params: Record<string, unknown>, userId?: string) {
-    return executeFeishuRequest({
-      operation: "calendar.calendarEvent.list",
-      userId,
-      invoke: async ({ authorizationHeader }) => {
-        const url = new URL(
-          `https://open.${this.config.domain}.cn/open-apis/calendar/v4/calendars/${params.calendar_id}/events`
-        );
-        if (params.start_time) url.searchParams.set("start_time", String(params.start_time));
-        if (params.end_time) url.searchParams.set("end_time", String(params.end_time));
-        if (params.page_size) url.searchParams.set("page_size", String(params.page_size));
-        if (params.page_token) url.searchParams.set("page_token", String(params.page_token));
-
-        const resp = await fetch(url.toString(), {
-          headers: {
-            "Authorization": authorizationHeader,
-          },
-        });
-
-        if (!resp.ok) {
-          const error = await resp.json();
-          throw new Error(`Failed to list events: ${JSON.stringify(error)}`);
-        }
-
-        return resp.json();
+  private async listEvents(params: Record<string, unknown>) {
+    return this.client.calendar.v4.calendarEvent.list({
+      path: {
+        calendar_id: String(params.calendar_id),
+      },
+      params: {
+        start_time: params.start_time ? String(params.start_time) : undefined,
+        end_time: params.end_time ? String(params.end_time) : undefined,
+        page_size: params.page_size ? Number(params.page_size) : undefined,
+        page_token: params.page_token ? String(params.page_token) : undefined,
       },
     });
   }
 
-  private async getFreeBusy(params: Record<string, unknown>, userId?: string) {
+  private async getFreeBusy(params: Record<string, unknown>) {
     return executeFeishuRequest({
       operation: "calendar.freebusy.list",
-      userId,
       invoke: async ({ authorizationHeader }) => {
+        const domain = this.config.domain === "lark" ? "lark" : "feishu";
         const resp = await fetch(
-          `https://open.${this.config.domain}.cn/open-apis/calendar/v4/freebusy/list`,
+          `https://open.${domain}.cn/open-apis/calendar/v4/freebusy/list`,
           {
             method: "POST",
             headers: {
@@ -151,23 +127,18 @@ export class CalendarTools {
             }),
           }
         );
-
         if (!resp.ok) {
           const error = await resp.json();
           throw new Error(`Failed to get freebusy: ${JSON.stringify(error)}`);
         }
-
         return resp.json();
       },
     });
   }
 }
 
-// ─── 注册辅助函数（用于 index.ts 统一注册） ───
+// ─── 注册辅助函数 ───
 
-/**
- * 注册 Calendar 工具到 OpenClaw
- */
 export function registerCalendarTools(
   tools: CalendarTools,
   registerTool: (toolDef: typeof CALENDAR_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
