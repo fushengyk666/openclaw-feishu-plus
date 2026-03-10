@@ -21,6 +21,46 @@ export const CALENDAR_TOOL_DEFS = [
     },
   },
   {
+    name: "feishu_plus_calendar_create",
+    description: "创建日历",
+    parameters: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "日历名称" },
+        description: { type: "string", description: "日历描述" },
+        permissions: { type: "string", description: "权限（private/show_only_free_busy/reader/writer）" },
+        color: { type: "number", description: "日历颜色（整数）" },
+      },
+      required: ["summary"],
+    },
+  },
+  {
+    name: "feishu_plus_calendar_delete",
+    description: "删除日历",
+    parameters: {
+      type: "object",
+      properties: {
+        calendar_id: { type: "string", description: "日历 ID" },
+      },
+      required: ["calendar_id"],
+    },
+  },
+  {
+    name: "feishu_plus_calendar_update",
+    description: "更新日历信息",
+    parameters: {
+      type: "object",
+      properties: {
+        calendar_id: { type: "string", description: "日历 ID" },
+        summary: { type: "string", description: "日历名称" },
+        description: { type: "string", description: "日历描述" },
+        permissions: { type: "string", description: "权限（private/show_only_free_busy/reader/writer）" },
+        color: { type: "number", description: "日历颜色（整数）" },
+      },
+      required: ["calendar_id"],
+    },
+  },
+  {
     name: "feishu_plus_calendar_event_list",
     description: "列出日历事件",
     parameters: {
@@ -118,6 +158,12 @@ export class CalendarTools {
     switch (toolName) {
       case "feishu_plus_calendar_list":
         return this.list(params);
+      case "feishu_plus_calendar_create":
+        return this.createCalendar(params);
+      case "feishu_plus_calendar_delete":
+        return this.deleteCalendar(params);
+      case "feishu_plus_calendar_update":
+        return this.updateCalendar(params);
       case "feishu_plus_calendar_event_list":
         return this.listEvents(params);
       case "feishu_plus_calendar_event_create":
@@ -139,6 +185,36 @@ export class CalendarTools {
         page_size: params.page_size ? Math.max(Number(params.page_size), 50) : 50,
         page_token: params.page_token ? String(params.page_token) : undefined,
       },
+    });
+  }
+
+  private async createCalendar(params: Record<string, unknown>) {
+    const data: any = {
+      summary: String(params.summary),
+    };
+    if (params.description) data.description = String(params.description);
+    if (params.permissions) data.permissions = String(params.permissions);
+    if (params.color !== undefined) data.color = Number(params.color);
+
+    return this.client.calendar.v4.calendar.create({ data });
+  }
+
+  private async deleteCalendar(params: Record<string, unknown>) {
+    return this.client.calendar.v4.calendar.delete({
+      path: { calendar_id: String(params.calendar_id) },
+    });
+  }
+
+  private async updateCalendar(params: Record<string, unknown>) {
+    const data: any = {};
+    if (params.summary) data.summary = String(params.summary);
+    if (params.description) data.description = String(params.description);
+    if (params.permissions) data.permissions = String(params.permissions);
+    if (params.color !== undefined) data.color = Number(params.color);
+
+    return this.client.calendar.v4.calendar.patch({
+      path: { calendar_id: String(params.calendar_id) },
+      data,
     });
   }
 
