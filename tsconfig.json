@@ -16,5 +16,5 @@
     "sourceMap": true
   },
   "include": ["index.ts", "src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "*.json", "skills"]
+  "exclude": ["node_modules", "dist", "*.json", "skills", "smoke-test.mjs", "verify-import.ts"]
 }

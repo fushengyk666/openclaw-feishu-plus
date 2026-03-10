@@ -5,18 +5,43 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.35.0",
+    "@larksuiteoapi/node-sdk": "^1.59.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0"
+  },
+  "openclaw": {
+    "extensions": ["./dist/index.js"],
+    "channel": {
+      "id": "openclaw-feishu-plus",
+      "label": "Feishu Plus",
+      "selectionLabel": "Feishu/Lark (飞书)",
+      "docsPath": "/channels/feishu-plus",
+      "docsLabel": "feishu-plus",
+      "blurb": "飞书/Lark 企业消息与文档工具，支持 dual-token 自动切换。",
+      "aliases": ["lark", "feishu-plus"],
+      "order": 36
+    },
+    "install": {
+      "npmSpec": "openclaw-feishu-plus",
+      "localPath": "extensions/feishu-plus",
+      "defaultChoice": "local"
+    }
   },
   "engines": {
     "node": ">=20.0.0"
