@@ -7,7 +7,11 @@
  * - 全部工具能力（doc, calendar, wiki, drive, bitable, task, chat, perm）
  */
 
-import { PLUGIN_ID } from "./src/constants.js";
+import { PLUGIN_ID, CONFIG_NAMESPACE } from "./src/constants.js";
+import { parseConfig } from "./src/core/config-schema.js";
+import { createTokenStore } from "./src/core/token-store.js";
+import { TokenResolver } from "./src/core/token-resolver.js";
+import { initExecutor } from "./src/core/request-executor.js";
 import { DocTools, registerDocTools } from "./src/tools/doc.js";
 import { CalendarTools, registerCalendarTools } from "./src/tools/calendar.js";
 import { OAuthTools, registerOAuthTools } from "./src/tools/oauth-tool.js";
@@ -38,21 +42,42 @@ const plugin = {
     setFeishuPlusRuntime(api.runtime);
     api.registerChannel({ plugin: feishuPlusPlugin });
 
-    // 注册工具 — 使用 api 提供的 registerTool 回调
-    const cfg = api.config || {};
-    const store = {} as any;
+    // ── 初始化 Dual-Token 核心 ──
+    const rawCfg = api.config ?? {};
+    const channelCfg = rawCfg?.channels?.[CONFIG_NAMESPACE] ?? {};
+
+    const pluginConfig = parseConfig({
+      appId: channelCfg.appId ?? "",
+      appSecret: channelCfg.appSecret ?? "",
+      domain: channelCfg.domain ?? "feishu",
+      auth: {
+        preferUserToken: true,
+      },
+    });
+
+    const tokenStore = createTokenStore(pluginConfig.auth.store ?? "memory");
+    const resolver = new TokenResolver(pluginConfig, tokenStore);
+    initExecutor(resolver);
+
+    // ── 注册工具 ──
     const reg = (toolDef: any, execute: any) => {
-      api.registerTool?.({ name: toolDef.name, description: toolDef.description, parameters: toolDef.parameters, execute });
+      api.registerTool?.({
+        name: toolDef.name,
+        description: toolDef.description,
+        parameters: toolDef.parameters,
+        execute,
+      });
     };
-    registerDocTools(new DocTools(cfg, store), reg);
-    registerCalendarTools(new CalendarTools(cfg, store), reg);
-    registerOAuthTools(new OAuthTools(cfg, store), reg);
-    registerWikiTools(new WikiTools(cfg, store), reg);
-    registerDriveTools(new DriveTools(cfg, store), reg);
-    registerBitableTools(new BitableTools(cfg, store), reg);
-    registerTaskTools(new TaskTools(cfg, store), reg);
-    registerChatTools(new ChatTools(cfg, store), reg);
-    registerPermTools(new PermTools(cfg, store), reg);
+
+    registerDocTools(new DocTools(pluginConfig, tokenStore), reg);
+    registerCalendarTools(new CalendarTools(pluginConfig, tokenStore), reg);
+    registerOAuthTools(new OAuthTools(pluginConfig, tokenStore), reg);
+    registerWikiTools(new WikiTools(pluginConfig, tokenStore), reg);
+    registerDriveTools(new DriveTools(pluginConfig, tokenStore), reg);
+    registerBitableTools(new BitableTools(pluginConfig, tokenStore), reg);
+    registerTaskTools(new TaskTools(pluginConfig, tokenStore), reg);
+    registerChatTools(new ChatTools(pluginConfig, tokenStore), reg);
+    registerPermTools(new PermTools(pluginConfig, tokenStore), reg);
   },
 };
 
