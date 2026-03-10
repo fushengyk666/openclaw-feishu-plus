@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const TASK_TOOL_DEFS = [
   {
-    name: "feishu_task_get",
+    name: "feishu_plus_task_get",
     description: "获取任务详情",
     parameters: {
       type: "object",
@@ -25,7 +25,7 @@ export const TASK_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_task_list",
+    name: "feishu_plus_task_list",
     description: "列出任务列表",
     parameters: {
       type: "object",
@@ -38,7 +38,7 @@ export const TASK_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_task_create",
+    name: "feishu_plus_task_create",
     description: "创建任务",
     parameters: {
       type: "object",
@@ -54,7 +54,7 @@ export const TASK_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_task_update",
+    name: "feishu_plus_task_update",
     description: "更新任务",
     parameters: {
       type: "object",
@@ -72,7 +72,7 @@ export const TASK_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_task_complete",
+    name: "feishu_plus_task_complete",
     description: "标记任务为已完成",
     parameters: {
       type: "object",
@@ -95,19 +95,19 @@ export class TaskTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_task_get":
+      case "feishu_plus_task_get":
         return this.get(params, userId);
 
-      case "feishu_task_list":
+      case "feishu_plus_task_list":
         return this.list(params, userId);
 
-      case "feishu_task_create":
+      case "feishu_plus_task_create":
         return this.create(params, userId);
 
-      case "feishu_task_update":
+      case "feishu_plus_task_update":
         return this.update(params, userId);
 
-      case "feishu_task_complete":
+      case "feishu_plus_task_complete":
         return this.complete(params, userId);
 
       default:

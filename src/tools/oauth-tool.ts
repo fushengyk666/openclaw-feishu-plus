@@ -18,7 +18,7 @@ import type { PluginConfig } from "../core/config-schema.js";
 
 export const OAUTH_TOOL_DEFS = [
   {
-    name: "feishu_auth_status",
+    name: "feishu_plus_auth_status",
     description: "查看当前用户的飞书授权状态",
     parameters: {
       type: "object",
@@ -26,7 +26,7 @@ export const OAUTH_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_auth_authorize",
+    name: "feishu_plus_auth_authorize",
     description: "触发飞书用户授权流程，返回授权链接",
     parameters: {
       type: "object",
@@ -40,7 +40,7 @@ export const OAUTH_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_auth_callback",
+    name: "feishu_plus_auth_callback",
     description: "处理 OAuth 回调，使用授权码换取并存储 token（用于手动输入授权码的场景）",
     parameters: {
       type: "object",
@@ -54,7 +54,7 @@ export const OAUTH_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_auth_revoke",
+    name: "feishu_plus_auth_revoke",
     description: "撤销当前用户的飞书授权",
     parameters: {
       type: "object",
@@ -73,16 +73,16 @@ export class OAuthTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_auth_status":
+      case "feishu_plus_auth_status":
         return this.getStatus(params, userId);
 
-      case "feishu_auth_authorize":
+      case "feishu_plus_auth_authorize":
         return this.authorize(params);
 
-      case "feishu_auth_callback":
+      case "feishu_plus_auth_callback":
         return this.handleCallback(params);
 
-      case "feishu_auth_revoke":
+      case "feishu_plus_auth_revoke":
         return this.revoke(params, userId);
 
       default:

@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const WIKI_TOOL_DEFS = [
   {
-    name: "feishu_wiki_list_spaces",
+    name: "feishu_plus_wiki_list_spaces",
     description: "列出知识库空间列表",
     parameters: {
       type: "object",
@@ -24,7 +24,7 @@ export const WIKI_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_wiki_get_node",
+    name: "feishu_plus_wiki_get_node",
     description: "获取知识库节点信息",
     parameters: {
       type: "object",
@@ -36,7 +36,7 @@ export const WIKI_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_wiki_list_nodes",
+    name: "feishu_plus_wiki_list_nodes",
     description: "列出知识库空间下的节点",
     parameters: {
       type: "object",
@@ -50,7 +50,7 @@ export const WIKI_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_wiki_create_space",
+    name: "feishu_plus_wiki_create_space",
     description: "创建知识库空间",
     parameters: {
       type: "object",
@@ -73,16 +73,16 @@ export class WikiTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_wiki_list_spaces":
+      case "feishu_plus_wiki_list_spaces":
         return this.listSpaces(params, userId);
 
-      case "feishu_wiki_get_node":
+      case "feishu_plus_wiki_get_node":
         return this.getNode(params, userId);
 
-      case "feishu_wiki_list_nodes":
+      case "feishu_plus_wiki_list_nodes":
         return this.listNodes(params, userId);
 
-      case "feishu_wiki_create_space":
+      case "feishu_plus_wiki_create_space":
         return this.createSpace(params, userId);
 
       default:

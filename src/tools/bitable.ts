@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const BITABLE_TOOL_DEFS = [
   {
-    name: "feishu_bitable_get_app",
+    name: "feishu_plus_bitable_get_app",
     description: "获取多维表格应用信息",
     parameters: {
       type: "object",
@@ -24,7 +24,7 @@ export const BITABLE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_bitable_list_tables",
+    name: "feishu_plus_bitable_list_tables",
     description: "列出多维表格中的数据表",
     parameters: {
       type: "object",
@@ -35,7 +35,7 @@ export const BITABLE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_bitable_list_records",
+    name: "feishu_plus_bitable_list_records",
     description: "列出数据表中的记录",
     parameters: {
       type: "object",
@@ -53,7 +53,7 @@ export const BITABLE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_bitable_create_record",
+    name: "feishu_plus_bitable_create_record",
     description: "创建记录",
     parameters: {
       type: "object",
@@ -67,7 +67,7 @@ export const BITABLE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_bitable_update_record",
+    name: "feishu_plus_bitable_update_record",
     description: "更新记录",
     parameters: {
       type: "object",
@@ -81,7 +81,7 @@ export const BITABLE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_bitable_delete_record",
+    name: "feishu_plus_bitable_delete_record",
     description: "删除记录",
     parameters: {
       type: "object",
@@ -105,22 +105,22 @@ export class BitableTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_bitable_get_app":
+      case "feishu_plus_bitable_get_app":
         return this.getApp(params, userId);
 
-      case "feishu_bitable_list_tables":
+      case "feishu_plus_bitable_list_tables":
         return this.listTables(params, userId);
 
-      case "feishu_bitable_list_records":
+      case "feishu_plus_bitable_list_records":
         return this.listRecords(params, userId);
 
-      case "feishu_bitable_create_record":
+      case "feishu_plus_bitable_create_record":
         return this.createRecord(params, userId);
 
-      case "feishu_bitable_update_record":
+      case "feishu_plus_bitable_update_record":
         return this.updateRecord(params, userId);
 
-      case "feishu_bitable_delete_record":
+      case "feishu_plus_bitable_delete_record":
         return this.deleteRecord(params, userId);
 
       default:

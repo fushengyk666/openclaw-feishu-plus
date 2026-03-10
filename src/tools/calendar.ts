@@ -14,7 +14,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const CALENDAR_TOOL_DEFS = [
   {
-    name: "feishu_calendar_list",
+    name: "feishu_plus_calendar_list",
     description: "列出日历",
     parameters: {
       type: "object",
@@ -25,7 +25,7 @@ export const CALENDAR_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_calendar_event_list",
+    name: "feishu_plus_calendar_event_list",
     description: "列出日历事件",
     parameters: {
       type: "object",
@@ -40,7 +40,7 @@ export const CALENDAR_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_calendar_freebusy",
+    name: "feishu_plus_calendar_freebusy",
     description: "查询忙闲状态（需要用户授权）",
     parameters: {
       type: "object",
@@ -73,11 +73,11 @@ export class CalendarTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_calendar_list":
+      case "feishu_plus_calendar_list":
         return this.list(params);
-      case "feishu_calendar_event_list":
+      case "feishu_plus_calendar_event_list":
         return this.listEvents(params);
-      case "feishu_calendar_freebusy":
+      case "feishu_plus_calendar_freebusy":
         return this.getFreeBusy(params);
       default:
         throw new Error(`Unknown calendar tool: ${toolName}`);
@@ -94,17 +94,23 @@ export class CalendarTools {
   }
 
   private async listEvents(params: Record<string, unknown>) {
-    return this.client.calendar.v4.calendarEvent.list({
-      path: {
-        calendar_id: String(params.calendar_id),
-      },
-      params: {
-        start_time: params.start_time ? String(params.start_time) : undefined,
-        end_time: params.end_time ? String(params.end_time) : undefined,
-        page_size: params.page_size ? Number(params.page_size) : undefined,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-      },
-    });
+    try {
+      const result = await this.client.calendar.v4.calendarEvent.list({
+        path: {
+          calendar_id: String(params.calendar_id),
+        },
+        params: {
+          start_time: params.start_time ? String(params.start_time) : undefined,
+          end_time: params.end_time ? String(params.end_time) : undefined,
+          page_size: params.page_size ? Number(params.page_size) : undefined,
+          page_token: params.page_token ? String(params.page_token) : undefined,
+        },
+      });
+      return result;
+    } catch (err: any) {
+      const detail = err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? String(err);
+      throw new Error(`calendar_event_list failed (calendar_id=${params.calendar_id}): ${detail}`);
+    }
   }
 
   private async getFreeBusy(params: Record<string, unknown>) {

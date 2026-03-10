@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const DOC_TOOL_DEFS = [
   {
-    name: "feishu_doc_create",
+    name: "feishu_plus_doc_create",
     description: "创建飞书云文档",
     parameters: {
       type: "object",
@@ -25,7 +25,7 @@ export const DOC_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_doc_get",
+    name: "feishu_plus_doc_get",
     description: "获取飞书云文档内容",
     parameters: {
       type: "object",
@@ -36,7 +36,7 @@ export const DOC_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_doc_list_blocks",
+    name: "feishu_plus_doc_list_blocks",
     description: "列出文档中的所有块",
     parameters: {
       type: "object",
@@ -60,13 +60,13 @@ export class DocTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_doc_create":
+      case "feishu_plus_doc_create":
         return this.create(params, userId);
 
-      case "feishu_doc_get":
+      case "feishu_plus_doc_get":
         return this.get(params, userId);
 
-      case "feishu_doc_list_blocks":
+      case "feishu_plus_doc_list_blocks":
         return this.listBlocks(params, userId);
 
       default:

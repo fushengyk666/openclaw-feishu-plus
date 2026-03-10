@@ -15,7 +15,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const PERM_TOOL_DEFS = [
   {
-    name: "feishu_drive_list_permissions",
+    name: "feishu_plus_drive_list_permissions",
     description: "列出文件/文件夹的权限列表",
     parameters: {
       type: "object",
@@ -29,7 +29,7 @@ export const PERM_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_create_permission",
+    name: "feishu_plus_drive_create_permission",
     description: "添加文件/文件夹权限",
     parameters: {
       type: "object",
@@ -46,7 +46,7 @@ export const PERM_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_update_permission",
+    name: "feishu_plus_drive_update_permission",
     description: "更新文件/文件夹权限",
     parameters: {
       type: "object",
@@ -62,7 +62,7 @@ export const PERM_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_delete_permission",
+    name: "feishu_plus_drive_delete_permission",
     description: "删除文件/文件夹权限",
     parameters: {
       type: "object",
@@ -77,7 +77,7 @@ export const PERM_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_transfer_owner",
+    name: "feishu_plus_drive_transfer_owner",
     description: "转移文件/文件夹所有权（必须使用用户身份）",
     parameters: {
       type: "object",
@@ -102,19 +102,19 @@ export class PermTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_drive_list_permissions":
+      case "feishu_plus_drive_list_permissions":
         return this.listPermissions(params, userId);
 
-      case "feishu_drive_create_permission":
+      case "feishu_plus_drive_create_permission":
         return this.createPermission(params, userId);
 
-      case "feishu_drive_update_permission":
+      case "feishu_plus_drive_update_permission":
         return this.updatePermission(params, userId);
 
-      case "feishu_drive_delete_permission":
+      case "feishu_plus_drive_delete_permission":
         return this.deletePermission(params, userId);
 
-      case "feishu_drive_transfer_owner":
+      case "feishu_plus_drive_transfer_owner":
         return this.transferOwner(params, userId);
 
       default:

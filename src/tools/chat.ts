@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const CHAT_TOOL_DEFS = [
   {
-    name: "feishu_chat_list",
+    name: "feishu_plus_chat_list",
     description: "列出群聊列表",
     parameters: {
       type: "object",
@@ -25,7 +25,7 @@ export const CHAT_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_chat_get",
+    name: "feishu_plus_chat_get",
     description: "获取群聊信息",
     parameters: {
       type: "object",
@@ -36,7 +36,7 @@ export const CHAT_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_message_send",
+    name: "feishu_plus_message_send",
     description: "发送消息到群聊",
     parameters: {
       type: "object",
@@ -51,7 +51,7 @@ export const CHAT_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_message_list",
+    name: "feishu_plus_message_list",
     description: "列出群聊消息",
     parameters: {
       type: "object",
@@ -78,16 +78,16 @@ export class ChatTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_chat_list":
+      case "feishu_plus_chat_list":
         return this.list(params, userId);
 
-      case "feishu_chat_get":
+      case "feishu_plus_chat_get":
         return this.get(params, userId);
 
-      case "feishu_message_send":
+      case "feishu_plus_message_send":
         return this.send(params, userId);
 
-      case "feishu_message_list":
+      case "feishu_plus_message_list":
         return this.listMessages(params, userId);
 
       default:

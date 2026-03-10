@@ -13,7 +13,7 @@ import type { ITokenStore } from "../core/token-store.js";
 
 export const DRIVE_TOOL_DEFS = [
   {
-    name: "feishu_drive_list_files",
+    name: "feishu_plus_drive_list_files",
     description: "列出云盘文件",
     parameters: {
       type: "object",
@@ -27,7 +27,7 @@ export const DRIVE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_get_file",
+    name: "feishu_plus_drive_get_file",
     description: "获取文件信息",
     parameters: {
       type: "object",
@@ -38,7 +38,7 @@ export const DRIVE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_download_file",
+    name: "feishu_plus_drive_download_file",
     description: "获取文件下载信息",
     parameters: {
       type: "object",
@@ -49,7 +49,7 @@ export const DRIVE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_upload_file",
+    name: "feishu_plus_drive_upload_file",
     description: "上传文件（准备上传）",
     parameters: {
       type: "object",
@@ -62,7 +62,7 @@ export const DRIVE_TOOL_DEFS = [
     },
   },
   {
-    name: "feishu_drive_create_folder",
+    name: "feishu_plus_drive_create_folder",
     description: "创建文件夹",
     parameters: {
       type: "object",
@@ -85,19 +85,19 @@ export class DriveTools {
 
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
-      case "feishu_drive_list_files":
+      case "feishu_plus_drive_list_files":
         return this.listFiles(params, userId);
 
-      case "feishu_drive_get_file":
+      case "feishu_plus_drive_get_file":
         return this.getFile(params, userId);
 
-      case "feishu_drive_download_file":
+      case "feishu_plus_drive_download_file":
         return this.downloadFile(params, userId);
 
-      case "feishu_drive_upload_file":
+      case "feishu_plus_drive_upload_file":
         return this.uploadFile(params, userId);
 
-      case "feishu_drive_create_folder":
+      case "feishu_plus_drive_create_folder":
         return this.createFolder(params, userId);
 
       default:
