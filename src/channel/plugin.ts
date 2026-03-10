@@ -482,7 +482,7 @@ export const feishuPlusPlugin: any = {
 
   gateway: {
     startAccount: async (ctx: any) => {
-      const { cfg, accountId, setStatus, log, abortSignal } = ctx;
+      const { cfg, accountId, setStatus, log, abortSignal, runtime, channelRuntime } = ctx;
       const account = resolveFeishuPlusAccount(cfg, accountId);
       const feishuCfg = account.config;
       const connectionMode = feishuCfg?.connectionMode ?? "websocket";
@@ -503,7 +503,9 @@ export const feishuPlusPlugin: any = {
           accountId,
           feishuCfg,
           abortSignal,
-          onMessage: ctx.onMessage,
+          log,
+          runtime,
+          channelRuntime,
         });
       } else {
         return startWebhookListener({
@@ -511,7 +513,9 @@ export const feishuPlusPlugin: any = {
           accountId,
           feishuCfg,
           abortSignal,
-          onMessage: ctx.onMessage,
+          log,
+          runtime,
+          channelRuntime,
         });
       }
     },
@@ -524,6 +528,142 @@ export const feishuPlusPlugin: any = {
   },
 };
 
+// ─── Message Handler ───
+
+/**
+ * Parse a Feishu message event and dispatch it to the OpenClaw agent
+ * via channelRuntime (Plugin SDK).
+ */
+async function handleInboundMessage(params: {
+  cfg: any;
+  accountId: string;
+  feishuCfg: FeishuAccountConfig;
+  event: any;
+  log: any;
+  runtime: any;
+  channelRuntime: any;
+}) {
+  const { cfg, accountId, feishuCfg, event, log, runtime, channelRuntime } = params;
+  const logFn = log?.info ?? console.log;
+  const errorFn = log?.error ?? console.error;
+
+  try {
+    const message = event.message;
+    const sender = event.sender;
+    if (!message || !sender) return;
+
+    const messageId = message.message_id;
+    const chatId = message.chat_id ?? "";
+    const chatType = message.chat_type ?? "p2p"; // p2p or group
+    const senderOpenId = sender.sender_id?.open_id ?? "";
+    const isDirect = chatType === "p2p";
+
+    // Parse message content
+    let content = "";
+    try {
+      const body = JSON.parse(message.content || "{}");
+      content = body.text ?? body.content ?? "";
+    } catch {
+      content = message.content ?? "";
+    }
+
+    if (!content.trim()) return;
+
+    logFn(`feishu-plus[${accountId}]: message from ${senderOpenId} in ${chatId} (${chatType}): ${content.slice(0, 80)}`);
+
+    // If channelRuntime is not available, we can't dispatch
+    if (!channelRuntime) {
+      logFn(`feishu-plus[${accountId}]: channelRuntime not available, cannot dispatch`);
+      return;
+    }
+
+    // Resolve agent route
+    const route = channelRuntime.routing.resolveAgentRoute({
+      cfg,
+      channel: CHANNEL_ID,
+      chatType: isDirect ? "direct" : "group",
+      senderId: senderOpenId,
+      chatId,
+    });
+
+    // Build the inbound context
+    const from = `${CHANNEL_ID}:${isDirect ? "direct" : chatId}:${senderOpenId}`;
+    const to = `${CHANNEL_ID}:${isDirect ? "direct" : chatId}`;
+
+    const envelope = channelRuntime.reply.formatAgentEnvelope({
+      channel: "Feishu",
+      from,
+      timestamp: new Date(),
+      body: content,
+    });
+
+    const ctxPayload = channelRuntime.reply.finalizeInboundContext({
+      Body: envelope,
+      BodyForAgent: content,
+      RawBody: content,
+      CommandBody: content,
+      From: from,
+      To: to,
+      SessionKey: route.sessionKey,
+      AgentId: route.agentId,
+      AccountId: route.accountId ?? accountId,
+      ChatType: isDirect ? "direct" : "group",
+      SenderName: senderOpenId,
+      SenderId: senderOpenId,
+      Provider: CHANNEL_ID as any,
+      Surface: CHANNEL_ID as any,
+      MessageSid: messageId,
+      Timestamp: Date.now(),
+      WasMentioned: true,
+      OriginatingChannel: CHANNEL_ID as any,
+      OriginatingTo: to,
+    });
+
+    // Create a reply dispatcher that sends messages back to Feishu
+    const client = new lark.Client({
+      appId: (feishuCfg.appId || "") as string,
+      appSecret: (feishuCfg.appSecret || "") as string,
+      domain: feishuCfg.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+      loggerLevel: lark.LoggerLevel.warn,
+    });
+
+    const sendReply = async (text: string) => {
+      try {
+        const targetId = isDirect ? senderOpenId : chatId;
+        const receiveIdType = isDirect ? "open_id" : "chat_id";
+        await client.im.message.create({
+          params: { receive_id_type: receiveIdType },
+          data: {
+            receive_id: targetId,
+            msg_type: "text",
+            content: JSON.stringify({ text }),
+          },
+        });
+      } catch (err) {
+        errorFn(`feishu-plus[${accountId}]: failed to send reply: ${String(err)}`);
+      }
+    };
+
+    // Use dispatchReplyWithBufferedBlockDispatcher for full AI dispatch
+    await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
+      ctx: ctxPayload,
+      cfg,
+      dispatcherOptions: {
+        deliver: async (payload: any) => {
+          const text = payload?.text ?? payload?.body ?? payload?.content ?? String(payload);
+          if (text?.trim()) {
+            await sendReply(text);
+          }
+        },
+      },
+    });
+
+    logFn(`feishu-plus[${accountId}]: dispatch complete for message ${messageId}`);
+  } catch (err) {
+    errorFn(`feishu-plus[${accountId}]: error handling message: ${String(err)}`);
+  }
+}
+
 // ─── WebSocket Listener ───
 
 async function startWebSocketListener(params: {
@@ -531,28 +671,25 @@ async function startWebSocketListener(params: {
   accountId: string;
   feishuCfg: FeishuAccountConfig;
   abortSignal: AbortSignal;
-  onMessage: (msg: any) => void;
+  log: any;
+  runtime: any;
+  channelRuntime: any;
 }) {
-  const { cfg, accountId, feishuCfg, abortSignal, onMessage } = params;
-
-  const client = new lark.Client({
-    appId: (feishuCfg.appId || "") as string,
-    appSecret: (feishuCfg.appSecret || "") as string,
-    domain:
-      feishuCfg.domain === "lark"
-        ? lark.Domain.Lark
-        : lark.Domain.Feishu,
-    loggerLevel: lark.LoggerLevel.warn,
-  });
+  const { cfg, accountId, feishuCfg, abortSignal, log, runtime, channelRuntime } = params;
 
   const eventDispatcher = new lark.EventDispatcher({
     verificationToken: feishuCfg.verificationToken,
     encryptKey: feishuCfg.encryptKey,
   }).register({
     "im.message.receive_v1": async (data: any) => {
-      await onMessage({
+      await handleInboundMessage({
+        cfg,
         accountId,
-        message: data.message,
+        feishuCfg,
+        event: data,
+        log,
+        runtime,
+        channelRuntime,
       });
     },
   });
@@ -569,7 +706,6 @@ async function startWebSocketListener(params: {
   });
 
   // Return a promise that stays pending until abortSignal fires.
-  // Gateway treats promise resolution as "channel exited" and triggers restart.
   return new Promise<void>((resolve) => {
     const handleAbort = () => {
       wsClient.close({ force: true });
@@ -593,18 +729,25 @@ async function startWebhookListener(params: {
   accountId: string;
   feishuCfg: FeishuAccountConfig;
   abortSignal: AbortSignal;
-  onMessage: (msg: any) => void;
+  log: any;
+  runtime: any;
+  channelRuntime: any;
 }) {
-  const { cfg, accountId, feishuCfg, abortSignal, onMessage } = params;
+  const { cfg, accountId, feishuCfg, abortSignal, log, runtime, channelRuntime } = params;
 
   const eventDispatcher = new lark.EventDispatcher({
     verificationToken: feishuCfg.verificationToken,
     encryptKey: feishuCfg.encryptKey,
   }).register({
     "im.message.receive_v1": async (data: any) => {
-      await onMessage({
+      await handleInboundMessage({
+        cfg,
         accountId,
-        message: data.message,
+        feishuCfg,
+        event: data,
+        log,
+        runtime,
+        channelRuntime,
       });
     },
   });
@@ -617,10 +760,8 @@ async function startWebhookListener(params: {
   const host = feishuCfg.webhookHost || "0.0.0.0";
   const webhookPath = feishuCfg.webhookPath || "/webhook/feishu-plus";
 
-  // Use native http instead of express to avoid extra dependency
   const http = await import("http");
 
-  // Return a promise that stays pending until abortSignal fires.
   return new Promise<void>((resolve, reject) => {
     const server = http.createServer((req: any, res: any) => {
       if (req.url?.startsWith(webhookPath)) {
