@@ -60,13 +60,19 @@ const plugin = {
     initExecutor(resolver);
 
     // ── 注册工具 ──
+    const hasRegisterTool = typeof api.registerTool === "function";
+    console.log(`[feishu-plus] register: hasRegisterTool=${hasRegisterTool}, appId=${pluginConfig.appId?.slice(0,10)}...`);
+    
     const reg = (toolDef: any, execute: any) => {
-      api.registerTool?.({
-        name: toolDef.name,
-        description: toolDef.description,
-        parameters: toolDef.parameters,
-        execute,
-      });
+      if (api.registerTool) {
+        api.registerTool({
+          name: toolDef.name,
+          description: toolDef.description,
+          parameters: toolDef.parameters,
+          execute,
+        });
+        console.log(`[feishu-plus] registered tool: ${toolDef.name}`);
+      }
     };
 
     registerDocTools(new DocTools(pluginConfig, tokenStore), reg);

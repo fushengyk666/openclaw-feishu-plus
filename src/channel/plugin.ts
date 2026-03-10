@@ -578,13 +578,22 @@ async function handleInboundMessage(params: {
     }
 
     // Resolve agent route
-    const route = channelRuntime.routing.resolveAgentRoute({
-      cfg,
-      channel: CHANNEL_ID,
-      chatType: isDirect ? "direct" : "group",
-      senderId: senderOpenId,
-      chatId,
-    });
+    const peer = { kind: (isDirect ? "direct" : "group") as "direct" | "group", id: isDirect ? senderOpenId : chatId };
+    logFn(`feishu-plus[${accountId}]: resolving route for channel=${CHANNEL_ID} peer=${JSON.stringify(peer)}`);
+    
+    let route: any;
+    try {
+      route = channelRuntime.routing.resolveAgentRoute({
+        cfg,
+        channel: CHANNEL_ID,
+        accountId,
+        peer,
+      });
+      logFn(`feishu-plus[${accountId}]: route resolved: sessionKey=${route.sessionKey} agentId=${route.agentId} accountId=${route.accountId} matchedBy=${route.matchedBy}`);
+    } catch (routeErr: any) {
+      errorFn(`feishu-plus[${accountId}]: route resolution failed: ${String(routeErr)}`);
+      return;
+    }
 
     // Build the inbound context
     const from = `${CHANNEL_ID}:${isDirect ? "direct" : chatId}:${senderOpenId}`;
@@ -645,18 +654,28 @@ async function handleInboundMessage(params: {
     };
 
     // Use dispatchReplyWithBufferedBlockDispatcher for full AI dispatch
-    await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
-      ctx: ctxPayload,
-      cfg,
-      dispatcherOptions: {
-        deliver: async (payload: any) => {
-          const text = payload?.text ?? payload?.body ?? payload?.content ?? String(payload);
-          if (text?.trim()) {
-            await sendReply(text);
-          }
+    logFn(`feishu-plus[${accountId}]: dispatching to agent via channelRuntime.reply...`);
+    try {
+      const result = await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
+        ctx: ctxPayload,
+        cfg,
+        dispatcherOptions: {
+          deliver: async (payload: any, info: any) => {
+            logFn(`feishu-plus[${accountId}]: deliver callback fired (kind=${info?.kind}), payload keys: ${Object.keys(payload || {}).join(",")}`);
+            const text = payload?.text ?? payload?.body ?? payload?.content ?? "";
+            if (text?.trim()) {
+              logFn(`feishu-plus[${accountId}]: sending reply (${text.length} chars): ${text.slice(0, 80)}`);
+              await sendReply(text);
+            } else {
+              logFn(`feishu-plus[${accountId}]: deliver called but no text in payload`);
+            }
+          },
         },
-      },
-    });
+      });
+      logFn(`feishu-plus[${accountId}]: dispatchReply result: ${JSON.stringify(result)}`);
+    } catch (dispatchErr: any) {
+      errorFn(`feishu-plus[${accountId}]: dispatchReply failed: ${String(dispatchErr)}`);
+    }
 
     logFn(`feishu-plus[${accountId}]: dispatch complete for message ${messageId}`);
   } catch (err) {
