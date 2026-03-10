@@ -30,22 +30,22 @@ export const AuthConfigSchema = z.object({
 
 // ─── 工具开关 ───
 export const ToolsToggleSchema = z.object({
-  // P0: 已实现的 MVP 工具（默认启用）
+  // P0: 已实现的核心工具（默认启用）
   doc: z.boolean().default(true),
   calendar: z.boolean().default(true),
 
   // P0: OAuth 授权管理（默认启用）
   oauth: z.boolean().default(true),
 
-  // P1: 骨架工具（默认禁用，待实现后可启用）
-  wiki: z.boolean().default(false),
-  drive: z.boolean().default(false),
-  bitable: z.boolean().default(false),
-  task: z.boolean().default(false),
-  chat: z.boolean().default(false),
-  perm: z.boolean().default(false),
+  // P1: 已实现的扩展工具（默认启用）
+  wiki: z.boolean().default(true),
+  drive: z.boolean().default(true),
+  bitable: z.boolean().default(true),
+  task: z.boolean().default(true),
+  chat: z.boolean().default(true),
+  perm: z.boolean().default(true),
 
-  // 未实现的功能
+  // 未实现的功能（默认禁用）
   approval: z.boolean().default(false),
   mail: z.boolean().default(false),
   contact: z.boolean().default(false),

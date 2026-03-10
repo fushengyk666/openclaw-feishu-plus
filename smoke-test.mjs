@@ -19,7 +19,12 @@ assert.equal(config.mode, "tools-only");
 assert.equal(config.tools.doc, true);
 assert.equal(config.tools.calendar, true);
 assert.equal(config.tools.oauth, true);
-assert.equal(config.tools.drive, false);
+assert.equal(config.tools.drive, true); // 默认启用
+assert.equal(config.tools.wiki, true);
+assert.equal(config.tools.bitable, true);
+assert.equal(config.tools.task, true);
+assert.equal(config.tools.chat, true);
+assert.equal(config.tools.perm, true);
 assert.equal(config.auth.preferUserToken, true);
 
 const cfg2 = parseConfig({
@@ -57,15 +62,9 @@ const calendarTools = new CalendarTools(config, store);
 const oauthTools = new OAuthTools(config, store);
 assert.ok(docTools && calendarTools && oauthTools);
 
+// Drive 工具现在已实现，不再测试"not yet implemented"
 const driveTools = new DriveTools(config, store);
-let threw = false;
-try {
-  await driveTools.execute("feishu_drive_list_files", {});
-} catch (err) {
-  threw = true;
-  assert.match(String(err), /not yet implemented/i);
-}
-assert.equal(threw, true);
+assert.ok(driveTools);
 
 assert.equal(PLUGIN_ID, "openclaw-feishu-plus");
 assert.equal(CHANNEL_ID, "openclaw-feishu-plus");
