@@ -25,6 +25,12 @@ export interface FeishuAccountConfig {
   groupPolicy?: "open" | "allowlist" | "disabled";
   groupAllowFrom?: Array<string | number>;
   requireMention?: boolean;
+  typingIndicator?: boolean;
+  resolveSenderNames?: boolean;
+  historyLimit?: number;
+  textChunkLimit?: number;
+  mediaMaxMb?: number;
+  streaming?: boolean;
   accounts?: Record<string, FeishuAccountConfig>;
 }
 

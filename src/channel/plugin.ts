@@ -547,6 +547,14 @@ async function handleInboundMessage(params: {
   const logFn = log?.info ?? console.log;
   const errorFn = log?.error ?? console.error;
 
+  // Shared Lark client for this handler invocation
+  const client = new lark.Client({
+    appId: (feishuCfg.appId || "") as string,
+    appSecret: (feishuCfg.appSecret || "") as string,
+    domain: feishuCfg.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
+    loggerLevel: lark.LoggerLevel.warn,
+  });
+
   try {
     const message = event.message;
     const sender = event.sender;
@@ -569,17 +577,57 @@ async function handleInboundMessage(params: {
 
     if (!content.trim()) return;
 
-    logFn(`feishu-plus[${accountId}]: message from ${senderOpenId} in ${chatId} (${chatType}): ${content.slice(0, 80)}`);
+    // ── Resolve sender name ──
+    let senderName = senderOpenId;
+    if (feishuCfg.resolveSenderNames !== false) {
+      try {
+        const userResp = await client.contact.user.get({
+          path: { user_id: senderOpenId },
+          params: { user_id_type: "open_id" },
+        });
+        const name = (userResp?.data?.user as any)?.name;
+        if (name) senderName = name;
+      } catch {
+        // Best-effort, fall back to open_id
+      }
+    }
 
-    // If channelRuntime is not available, we can't dispatch
+    logFn(`feishu-plus[${accountId}]: message from ${senderName}(${senderOpenId}) in ${chatId} (${chatType}): ${content.slice(0, 80)}`);
+
     if (!channelRuntime) {
       logFn(`feishu-plus[${accountId}]: channelRuntime not available, cannot dispatch`);
       return;
     }
 
-    // Resolve agent route
+    // ── Typing indicator: add reaction ──
+    let typingReactionId: string | null = null;
+    if (feishuCfg.typingIndicator !== false && messageId) {
+      try {
+        const typingResp = await client.im.messageReaction.create({
+          path: { message_id: messageId },
+          data: { reaction_type: { emoji_type: "Typing" } },
+        });
+        typingReactionId = (typingResp?.data as any)?.reaction_id ?? null;
+      } catch {
+        // Best-effort
+      }
+    }
+
+    // Helper to remove typing indicator
+    const removeTyping = async () => {
+      if (!typingReactionId || !messageId) return;
+      try {
+        await client.im.messageReaction.delete({
+          path: { message_id: messageId, reaction_id: typingReactionId },
+        });
+      } catch {
+        // Best-effort
+      }
+      typingReactionId = null;
+    };
+
+    // ── Resolve agent route ──
     const peer = { kind: (isDirect ? "direct" : "group") as "direct" | "group", id: isDirect ? senderOpenId : chatId };
-    logFn(`feishu-plus[${accountId}]: resolving route for channel=${CHANNEL_ID} peer=${JSON.stringify(peer)}`);
     
     let route: any;
     try {
@@ -589,13 +637,13 @@ async function handleInboundMessage(params: {
         accountId,
         peer,
       });
-      logFn(`feishu-plus[${accountId}]: route resolved: sessionKey=${route.sessionKey} agentId=${route.agentId} accountId=${route.accountId} matchedBy=${route.matchedBy}`);
     } catch (routeErr: any) {
       errorFn(`feishu-plus[${accountId}]: route resolution failed: ${String(routeErr)}`);
+      await removeTyping();
       return;
     }
 
-    // Build the inbound context
+    // ── Build inbound context ──
     const from = `${CHANNEL_ID}:${isDirect ? "direct" : chatId}:${senderOpenId}`;
     const to = `${CHANNEL_ID}:${isDirect ? "direct" : chatId}`;
 
@@ -617,7 +665,7 @@ async function handleInboundMessage(params: {
       AgentId: route.agentId,
       AccountId: route.accountId ?? accountId,
       ChatType: isDirect ? "direct" : "group",
-      SenderName: senderOpenId,
+      SenderName: senderName,
       SenderId: senderOpenId,
       Provider: CHANNEL_ID as any,
       Surface: CHANNEL_ID as any,
@@ -628,14 +676,7 @@ async function handleInboundMessage(params: {
       OriginatingTo: to,
     });
 
-    // Create a reply dispatcher that sends messages back to Feishu
-    const client = new lark.Client({
-      appId: (feishuCfg.appId || "") as string,
-      appSecret: (feishuCfg.appSecret || "") as string,
-      domain: feishuCfg.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      loggerLevel: lark.LoggerLevel.warn,
-    });
-
+    // ── Send reply helper ──
     const sendReply = async (text: string) => {
       try {
         const targetId = isDirect ? senderOpenId : chatId;
@@ -653,8 +694,7 @@ async function handleInboundMessage(params: {
       }
     };
 
-    // Use dispatchReplyWithBufferedBlockDispatcher for full AI dispatch
-    logFn(`feishu-plus[${accountId}]: dispatching to agent via channelRuntime.reply...`);
+    // ── Dispatch to agent ──
     try {
       const result = await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
@@ -675,6 +715,8 @@ async function handleInboundMessage(params: {
       logFn(`feishu-plus[${accountId}]: dispatchReply result: ${JSON.stringify(result)}`);
     } catch (dispatchErr: any) {
       errorFn(`feishu-plus[${accountId}]: dispatchReply failed: ${String(dispatchErr)}`);
+    } finally {
+      await removeTyping();
     }
 
     logFn(`feishu-plus[${accountId}]: dispatch complete for message ${messageId}`);
