@@ -2,7 +2,7 @@
 
 ## 任务
 
-继续开发 feishu-hybrid-plugin，补齐"最后闭环集成"：
+继续开发 openclaw-feishu-plus，补齐"最后闭环集成"：
 1. 让 channel 收到消息后形成可集成的 inbound 事件对象
 2. sendMessage 改为遵循 token-first 路径
 3. 文档诚实说明当前状态

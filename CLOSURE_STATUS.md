@@ -2,13 +2,13 @@
 
 > **最后更新**: 2026-03-10
 >
-> 本文档诚实说明 feishu-hybrid-plugin 当前真正实现的闭环状态，不夸大、不隐瞒。
+> 本文档诚实说明 openclaw-feishu-plus 当前真正实现的闭环状态，不夸大、不隐瞒。
 
 ---
 
 ## 概述
 
-feishu-hybrid-plugin 是一个飞书增强版 OpenClaw 插件，采用 **Token-first 架构**，支持双模式运行：
+openclaw-feishu-plus 是一个飞书增强版 OpenClaw 插件，采用 **Token-first 架构**，支持双模式运行：
 
 - **tools-only**: 仅提供工具调用能力
 - **full**: 工具调用 + Channel 消息监听（WebSocket/Webhook）
@@ -289,8 +289,8 @@ $ npm run build
 
 ```bash
 cd ~/.openclaw/workspace
-git clone <your-repo-url> feishu-hybrid-plugin
-cd feishu-hybrid-plugin
+git clone <your-repo-url> openclaw-feishu-plus
+cd openclaw-feishu-plus
 npm install
 npm run build
 ```
@@ -365,7 +365,7 @@ const inboundBridge: InboundMessageBridge = {
 
 ```typescript
 // OpenClaw 侧注册插件示例
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const plugin = await feishuPlugin.register(config, {
   registerTool: (tool) => {
@@ -394,7 +394,7 @@ const plugin = await feishuPlugin.register(config, {
 ```javascript
 // Express 示例
 import express from "express";
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const app = express();
 

@@ -13,7 +13,7 @@
 
 ```bash
 # 从本地路径安装
-openclaw plugins install /path/to/feishu-hybrid-plugin
+openclaw plugins install /path/to/openclaw-feishu-plus
 
 # 或从 npm 安装（发布后）
 openclaw plugins install openclaw-feishu-plus

@@ -1,12 +1,12 @@
 # OpenClaw 集成指南
 
-本文档说明如何在 OpenClaw 中集成 feishu-hybrid-plugin。
+本文档说明如何在 OpenClaw 中集成 openclaw-feishu-plus。
 
 ---
 
 ## 概述
 
-feishu-hybrid-plugin 提供两种主要能力：
+openclaw-feishu-plus 提供两种主要能力：
 
 1. **Tools**: 飞书 API 工具集（文档、日历、云盘等）
 2. **Channel**: 飞书消息通道（WebSocket/Webhook）
@@ -20,7 +20,7 @@ feishu-hybrid-plugin 提供两种主要能力：
 插件提供一个标准的入口函数 `register`：
 
 ```typescript
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const plugin = await feishuPlugin.register(config, api);
 ```
@@ -87,7 +87,7 @@ interface OpenClawPluginAPI {
 **目的**: 将飞书消息注入到 OpenClaw 消息总线。
 
 ```typescript
-import type { FeishuInboundMessage, InboundMessageBridge } from "feishu-hybrid-plugin";
+import type { FeishuInboundMessage, InboundMessageBridge } from "openclaw-feishu-plus";
 
 const inboundBridge: InboundMessageBridge = {
   handleInbound: async (message: FeishuInboundMessage) => {
@@ -141,7 +141,7 @@ interface FeishuInboundMessage {
 ### 步骤 2: 注册插件
 
 ```typescript
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const config = {
   // 从 openclaw.json 读取的配置
@@ -182,7 +182,7 @@ const plugin = await feishuPlugin.register(config, {
 });
 
 // 保存 plugin 实例，用于后续调用
-openClaw.plugins.set("feishu-hybrid-plugin", plugin);
+openClaw.plugins.set("openclaw-feishu-plus", plugin);
 ```
 
 ### 步骤 3: 处理 Channel Handler
@@ -260,7 +260,7 @@ await sendToFeishu("oc_xxxxxxxxxxxxxxxx", "Hello from User!", "ou_xxxxxxxxxxxxxx
 ```javascript
 // Express 示例
 import express from "express";
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const app = express();
 
@@ -281,7 +281,7 @@ app.listen(3000);
 ```javascript
 // Koa 示例
 import Koa from "koa";
-import feishuPlugin from "feishu-hybrid-plugin";
+import feishuPlugin from "openclaw-feishu-plus";
 
 const app = new Koa();
 
@@ -305,7 +305,7 @@ OpenClaw 关闭时需要调用插件的 shutdown 方法：
 
 ```typescript
 async function shutdown() {
-  const plugin = openClaw.plugins.get("feishu-hybrid-plugin");
+  const plugin = openClaw.plugins.get("openclaw-feishu-plus");
   if (plugin && plugin.shutdown) {
     await plugin.shutdown();
     console.log(`[OpenClaw] Feishu plugin shutdown complete`);
@@ -318,7 +318,7 @@ async function shutdown() {
 ## 完整集成示例
 
 ```typescript
-import feishuPlugin, { type FeishuInboundMessage, type InboundMessageBridge, type FeishuChannelHandler } from "feishu-hybrid-plugin";
+import feishuPlugin, { type FeishuInboundMessage, type InboundMessageBridge, type FeishuChannelHandler } from "openclaw-feishu-plus";
 
 // 1. 实现 InboundMessageBridge
 const inboundBridge: InboundMessageBridge = {
@@ -382,7 +382,7 @@ const plugin = await feishuPlugin.register(config, {
 });
 
 // 3. 保存插件实例
-openClaw.plugins.set("feishu-hybrid-plugin", plugin);
+openClaw.plugins.set("openclaw-feishu-plus", plugin);
 
 // 4. 使用 channel handler
 async function sendToFeishu(chatId: string, text: string) {
@@ -394,7 +394,7 @@ async function sendToFeishu(chatId: string, text: string) {
 
 // 5. 关闭插件
 process.on("SIGTERM", async () => {
-  const plugin = openClaw.plugins.get("feishu-hybrid-plugin");
+  const plugin = openClaw.plugins.get("openclaw-feishu-plus");
   if (plugin && plugin.shutdown) {
     await plugin.shutdown();
   }

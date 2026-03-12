@@ -324,7 +324,7 @@ export type MessageHandler = (message: FeishuMessage) => Promise<void>;
 **示例代码**:
 ```javascript
 import express from "express";
-import { register } from "./feishu-hybrid-plugin/dist/index.js";
+import { register } from "./openclaw-feishu-plus/dist/index.js";
 
 const app = express();
 app.use(express.json());
@@ -352,7 +352,7 @@ app.listen(3000);
 ## 验证编译
 
 ```bash
-cd ~/.openclaw/workspace/feishu-hybrid-plugin
+cd ~/.openclaw/workspace/openclaw-feishu-plus
 npm run build
 ```
 
