@@ -6,7 +6,7 @@
 
 import { resolveFeishuPlusAccount } from "./accounts.js";
 import { normalizeFeishuPlusTarget } from "./targets.js";
-import { getLarkClient } from "../core/client.js";
+import { getLarkClient } from "../identity/client.js";
 
 export interface DirectoryEntry {
   kind: "user" | "group";

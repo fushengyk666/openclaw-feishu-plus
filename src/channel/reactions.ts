@@ -4,7 +4,7 @@
  * 飞书消息表情回应管理。
  */
 
-import { getLarkClient } from "../core/client.js";
+import { getLarkClient } from "../identity/client.js";
 
 /**
  * Feishu emoji type names (uppercase).

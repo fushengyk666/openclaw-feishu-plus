@@ -5,8 +5,8 @@
  */
 
 import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../core/config-schema.js";
-import type { ITokenStore } from "../core/token-store.js";
+import type { PluginConfig } from "../identity/config-schema.js";
+import type { ITokenStore } from "../identity/token-store.js";
 
 export const CALENDAR_TOOL_DEFS = [
   {

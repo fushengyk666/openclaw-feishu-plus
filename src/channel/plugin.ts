@@ -6,9 +6,6 @@
  */
 
 import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../core/config-schema.js";
-import type { TokenResolver } from "../core/token-resolver.js";
-
 import { PLUGIN_ID, CHANNEL_ID } from "../constants.js";
 
 // Account & Config Management
@@ -32,12 +29,14 @@ import {
 import {
   normalizeFeishuPlusTarget,
   looksLikeFeishuPlusId,
-  formatFeishuPlusTarget,
 } from "./targets.js";
 
 // Messaging & Onboarding
 import { sendMessageFeishu } from "./send.js";
 import { feishuPlusOnboardingAdapter } from "./onboarding.js";
+
+// Policy
+import { resolveFeishuPlusGroupToolPolicy } from "./policy.js";
 
 // Probe
 import { probeFeishuPlus } from "./probe.js";
@@ -64,6 +63,8 @@ const DEFAULT_ACCOUNT_ID = "default";
 
 // ─── Config Helpers ───
 
+import { resolveChannelConfig } from "./config.js";
+
 function setFeishuPlusNamedAccountEnabled(
   cfg: any,
   accountId: string,
@@ -87,36 +88,6 @@ function setFeishuPlusNamedAccountEnabled(
       },
     },
   };
-}
-
-function resolveFeishuPlusConfig(cfg: any): FeishuAccountConfig | undefined {
-  return cfg?.channels?.["openclaw-feishu-plus"];
-}
-
-// ─── Group Policy Resolution ───
-
-function resolveFeishuPlusGroupToolPolicy(cfg: any, accountId: string): "allow" | "deny" {
-  const section = resolveFeishuPlusConfig(cfg);
-  const account = resolveFeishuPlusAccount(cfg, accountId);
-  const groupPolicy = account.config?.groupPolicy ?? "disabled";
-
-  // "open" mode: allow all groups
-  if (groupPolicy === "open") {
-    return "allow";
-  }
-
-  // "disabled" mode: deny all group tools
-  if (groupPolicy === "disabled") {
-    return "deny";
-  }
-
-  // "allowlist" mode: check groupAllowFrom
-  const groupAllowFrom = account.config?.groupAllowFrom ?? [];
-  if (groupAllowFrom.length === 0) {
-    return "deny";
-  }
-
-  return "allow";
 }
 
 // ─── Channel Plugin Definition ───
@@ -293,7 +264,7 @@ export const feishuPlusPlugin: any = {
         return next;
       }
 
-      const section = resolveFeishuPlusConfig(cfg);
+      const section = resolveChannelConfig(cfg);
       const accounts = { ...(section?.accounts ?? {}) };
       delete accounts[accountId];
 

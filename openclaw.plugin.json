@@ -1,8 +1,8 @@
 {
   "id": "openclaw-feishu-plus",
   "name": "OpenClaw Feishu Plus",
-  "version": "0.1.0",
-  "description": "飞书增强插件：dual-token 自动切换（user-if-available-else-tenant）",
+  "version": "0.2.0",
+  "description": "飞书增强插件：dual-token 自动切换（user-if-available-else-tenant），支持完整飞书平台能力。",
   "channels": ["openclaw-feishu-plus"],
   "skills": ["./skills"],
   "entry": "dist/index.js",
@@ -10,6 +10,22 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "appId": { "type": "string", "description": "飞书应用 App ID" },
+      "appSecret": { "type": "string", "description": "飞书应用 App Secret" },
+      "domain": { "type": "string", "enum": ["feishu", "lark"], "description": "域名（feishu 或 lark）" },
+      "connectionMode": { "type": "string", "enum": ["websocket", "webhook"] },
+      "dmPolicy": { "type": "string", "enum": ["open", "pairing", "allowlist"] },
+      "groupPolicy": { "type": "string", "enum": ["open", "allowlist", "disabled"] },
+      "auth": {
+        "type": "object",
+        "properties": {
+          "preferUserToken": { "type": "boolean" },
+          "autoPromptUserAuth": { "type": "boolean" },
+          "store": { "type": "string" },
+          "redirectUri": { "type": "string" }
+        }
+      }
+    }
   }
 }

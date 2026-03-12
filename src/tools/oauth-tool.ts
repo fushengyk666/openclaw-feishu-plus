@@ -10,9 +10,9 @@
  * 4. 调用 callback 处理授权码，换取并存储 token
  */
 
-import { buildAuthorizationUrl, exchangeCodeForToken } from "../core/oauth.js";
-import type { ITokenStore } from "../core/token-store.js";
-import type { PluginConfig } from "../core/config-schema.js";
+import { buildAuthorizationUrl, exchangeCodeForToken } from "../identity/oauth.js";
+import type { ITokenStore } from "../identity/token-store.js";
+import type { PluginConfig } from "../identity/config-schema.js";
 
 // ─── 工具定义 ───
 

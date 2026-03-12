@@ -1,7 +1,7 @@
 {
   "name": "openclaw-feishu-plus",
-  "version": "0.1.0",
-  "description": "飞书 Dual-Token OpenClaw Plugin — 同一套接口，运行时按 Token 类型自动选择身份",
+  "version": "0.2.0",
+  "description": "飞书增强插件：dual-token 自动切换（user-if-available-else-tenant），支持完整飞书平台能力",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

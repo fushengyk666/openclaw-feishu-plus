@@ -4,7 +4,7 @@
  * 处理图片、文件等媒体的上传和发送。
  */
 
-import { getLarkClient } from "../core/client.js";
+import { getLarkClient } from "../identity/client.js";
 import { resolveReceiveIdType } from "./targets.js";
 import { sendMessageFeishu } from "./send.js";
 import * as fs from "fs";

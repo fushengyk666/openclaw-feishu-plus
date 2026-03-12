@@ -5,7 +5,7 @@
  */
 
 import * as lark from "@larksuiteoapi/node-sdk";
-import { getLarkClient } from "../core/client.js";
+import { getLarkClient } from "../identity/client.js";
 import { resolveReceiveIdType } from "./targets.js";
 import { PLUGIN_ID } from "../constants.js";
 
