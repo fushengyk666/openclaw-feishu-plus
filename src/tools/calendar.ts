@@ -1,12 +1,20 @@
 /**
- * calendar.ts — 飞书日历工具 (Lark SDK)
+ * calendar.ts — 飞书日历工具 (Dual-Auth)
  *
- * 支持：列出日历、列出/创建/更新/删除事件、查询忙闲状态
+ * 所有 API 调用经过 identity 层的双授权决策链路：
+ * - 有 user token → 用 user token
+ * - 无 user token → 回退 tenant token
+ * - user_only 接口（如 freebusy）→ 生成授权提示
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import {
+  feishuGet,
+  feishuPost,
+  feishuPatch,
+  feishuDelete,
+} from "../identity/feishu-api.js";
+
+// ─── 工具定义 ───
 
 export const CALENDAR_TOOL_DEFS = [
   {
@@ -28,7 +36,10 @@ export const CALENDAR_TOOL_DEFS = [
       properties: {
         summary: { type: "string", description: "日历名称" },
         description: { type: "string", description: "日历描述" },
-        permissions: { type: "string", description: "权限（private/show_only_free_busy/reader/writer）" },
+        permissions: {
+          type: "string",
+          description: "权限（private/show_only_free_busy/reader/writer）",
+        },
         color: { type: "number", description: "日历颜色（整数）" },
       },
       required: ["summary"],
@@ -54,7 +65,10 @@ export const CALENDAR_TOOL_DEFS = [
         calendar_id: { type: "string", description: "日历 ID" },
         summary: { type: "string", description: "日历名称" },
         description: { type: "string", description: "日历描述" },
-        permissions: { type: "string", description: "权限（private/show_only_free_busy/reader/writer）" },
+        permissions: {
+          type: "string",
+          description: "权限（private/show_only_free_busy/reader/writer）",
+        },
         color: { type: "number", description: "日历颜色（整数）" },
       },
       required: ["calendar_id"],
@@ -66,7 +80,10 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
-        calendar_id: { type: "string", description: "日历 ID（主日历通常为 'primary'）" },
+        calendar_id: {
+          type: "string",
+          description: "日历 ID（主日历通常为 'primary'）",
+        },
         start_time: { type: "string", description: "开始时间（Unix 秒）" },
         end_time: { type: "string", description: "结束时间（Unix 秒）" },
         page_size: { type: "number" },
@@ -84,12 +101,29 @@ export const CALENDAR_TOOL_DEFS = [
         calendar_id: { type: "string", description: "日历 ID" },
         summary: { type: "string", description: "事件标题" },
         description: { type: "string", description: "事件描述" },
-        start_time: { type: "string", description: "开始时间（Unix 秒）" },
+        start_time: {
+          type: "string",
+          description: "开始时间（Unix 秒）",
+        },
         end_time: { type: "string", description: "结束时间（Unix 秒）" },
-        timezone: { type: "string", description: "时区（如 Asia/Shanghai），默认 Asia/Shanghai" },
-        attendees: { type: "string", description: "参会人 open_id 列表（JSON 数组字符串，如 [\"ou_xxx\"]）" },
-        reminders: { type: "string", description: "提醒设置（JSON 数组字符串，如 [{\"minutes\":5}]）" },
-        need_notification: { type: "boolean", description: "是否发送通知（默认 true）" },
+        timezone: {
+          type: "string",
+          description: "时区（如 Asia/Shanghai），默认 Asia/Shanghai",
+        },
+        attendees: {
+          type: "string",
+          description:
+            '参会人 open_id 列表（JSON 数组字符串，如 ["ou_xxx"]）',
+        },
+        reminders: {
+          type: "string",
+          description:
+            '提醒设置（JSON 数组字符串，如 [{"minutes":5}]）',
+        },
+        need_notification: {
+          type: "boolean",
+          description: "是否发送通知（默认 true）",
+        },
       },
       required: ["calendar_id", "summary", "start_time", "end_time"],
     },
@@ -104,7 +138,10 @@ export const CALENDAR_TOOL_DEFS = [
         event_id: { type: "string", description: "事件 ID" },
         summary: { type: "string", description: "事件标题" },
         description: { type: "string", description: "事件描述" },
-        start_time: { type: "string", description: "开始时间（Unix 秒）" },
+        start_time: {
+          type: "string",
+          description: "开始时间（Unix 秒）",
+        },
         end_time: { type: "string", description: "结束时间（Unix 秒）" },
         timezone: { type: "string", description: "时区" },
       },
@@ -119,7 +156,10 @@ export const CALENDAR_TOOL_DEFS = [
       properties: {
         calendar_id: { type: "string", description: "日历 ID" },
         event_id: { type: "string", description: "事件 ID" },
-        need_notification: { type: "boolean", description: "是否发送取消通知（默认 true）" },
+        need_notification: {
+          type: "boolean",
+          description: "是否发送取消通知（默认 true）",
+        },
       },
       required: ["calendar_id", "event_id"],
     },
@@ -130,219 +170,296 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
-        time_min: { type: "string", description: "查询开始时间（ISO 8601 或 Unix 秒）" },
-        time_max: { type: "string", description: "查询结束时间（ISO 8601 或 Unix 秒）" },
-        user_ids: { type: "array", items: { type: "string" }, description: "用户 ID 列表" },
+        time_min: {
+          type: "string",
+          description: "查询开始时间（ISO 8601 或 Unix 秒）",
+        },
+        time_max: {
+          type: "string",
+          description: "查询结束时间（ISO 8601 或 Unix 秒）",
+        },
+        user_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "用户 ID 列表",
+        },
       },
       required: ["time_min", "time_max"],
     },
   },
 ];
 
+// ─── 工具执行器 ───
+
 export class CalendarTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(
+    toolName: string,
+    params: Record<string, unknown>,
+    userId?: string,
+  ): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_calendar_list":
-        return this.list(params);
+        return this.list(params, userId);
       case "feishu_plus_calendar_create":
-        return this.createCalendar(params);
+        return this.createCalendar(params, userId);
       case "feishu_plus_calendar_delete":
-        return this.deleteCalendar(params);
+        return this.deleteCalendar(params, userId);
       case "feishu_plus_calendar_update":
-        return this.updateCalendar(params);
+        return this.updateCalendar(params, userId);
       case "feishu_plus_calendar_event_list":
-        return this.listEvents(params);
+        return this.listEvents(params, userId);
       case "feishu_plus_calendar_event_create":
-        return this.createEvent(params);
+        return this.createEvent(params, userId);
       case "feishu_plus_calendar_event_update":
-        return this.updateEvent(params);
+        return this.updateEvent(params, userId);
       case "feishu_plus_calendar_event_delete":
-        return this.deleteEvent(params);
+        return this.deleteEvent(params, userId);
       case "feishu_plus_calendar_freebusy":
-        return this.getFreeBusy(params);
+        return this.getFreeBusy(params, userId);
       default:
         throw new Error(`Unknown calendar tool: ${toolName}`);
     }
   }
 
-  private async list(params: Record<string, unknown>) {
-    return this.client.calendar.v4.calendar.list({
-      params: {
-        page_size: params.page_size ? Math.max(Number(params.page_size), 50) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-      },
-    });
+  private async list(params: Record<string, unknown>, userId?: string) {
+    const qp: Record<string, string | number | boolean | undefined> = {};
+    if (params.page_size) qp.page_size = Math.min(Number(params.page_size), 50);
+    if (params.page_token) qp.page_token = String(params.page_token);
+
+    const result = await feishuGet(
+      "calendar.calendar.list",
+      "/open-apis/calendar/v4/calendars",
+      { userId, params: qp },
+    );
+    return result.data;
   }
 
-  private async createCalendar(params: Record<string, unknown>) {
-    const data: any = {
+  private async createCalendar(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const body: Record<string, unknown> = {
       summary: String(params.summary),
     };
-    if (params.description) data.description = String(params.description);
-    if (params.permissions) data.permissions = String(params.permissions);
-    if (params.color !== undefined) data.color = Number(params.color);
+    if (params.description) body.description = String(params.description);
+    if (params.permissions) body.permissions = String(params.permissions);
+    if (params.color !== undefined) body.color = Number(params.color);
 
-    return this.client.calendar.v4.calendar.create({ data });
+    const result = await feishuPost(
+      "calendar.calendar.create",
+      "/open-apis/calendar/v4/calendars",
+      body,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async deleteCalendar(params: Record<string, unknown>) {
-    return this.client.calendar.v4.calendar.delete({
-      path: { calendar_id: String(params.calendar_id) },
-    });
+  private async deleteCalendar(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
+    const result = await feishuDelete(
+      "calendar.calendar.delete",
+      `/open-apis/calendar/v4/calendars/${calendarId}`,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async updateCalendar(params: Record<string, unknown>) {
-    const data: any = {};
-    if (params.summary) data.summary = String(params.summary);
-    if (params.description) data.description = String(params.description);
-    if (params.permissions) data.permissions = String(params.permissions);
-    if (params.color !== undefined) data.color = Number(params.color);
+  private async updateCalendar(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
+    const body: Record<string, unknown> = {};
+    if (params.summary) body.summary = String(params.summary);
+    if (params.description) body.description = String(params.description);
+    if (params.permissions) body.permissions = String(params.permissions);
+    if (params.color !== undefined) body.color = Number(params.color);
 
-    return this.client.calendar.v4.calendar.patch({
-      path: { calendar_id: String(params.calendar_id) },
-      data,
-    });
+    const result = await feishuPatch(
+      "calendar.calendar.update",
+      `/open-apis/calendar/v4/calendars/${calendarId}`,
+      body,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async listEvents(params: Record<string, unknown>) {
-    try {
-      return await this.client.calendar.v4.calendarEvent.list({
-        path: { calendar_id: String(params.calendar_id) },
-        params: {
-          start_time: params.start_time ? String(params.start_time) : undefined,
-          end_time: params.end_time ? String(params.end_time) : undefined,
-          page_size: params.page_size ? Math.max(Number(params.page_size), 50) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-        },
-      });
-    } catch (err: any) {
-      const detail = err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? String(err);
-      throw new Error(`calendar_event_list failed (calendar_id=${params.calendar_id}): ${detail}`);
-    }
+  private async listEvents(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
+    const qp: Record<string, string | number | boolean | undefined> = {};
+    if (params.start_time) qp.start_time = String(params.start_time);
+    if (params.end_time) qp.end_time = String(params.end_time);
+    if (params.page_size) qp.page_size = Math.min(Number(params.page_size), 50);
+    if (params.page_token) qp.page_token = String(params.page_token);
+
+    const result = await feishuGet(
+      "calendar.calendarEvent.list",
+      `/open-apis/calendar/v4/calendars/${calendarId}/events`,
+      { userId, params: qp },
+    );
+    return result.data;
   }
 
-  private async createEvent(params: Record<string, unknown>) {
+  private async createEvent(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
     const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-    const data: any = {
+
+    const body: Record<string, unknown> = {
       summary: String(params.summary),
       start_time: { timestamp: String(params.start_time), timezone: tz },
       end_time: { timestamp: String(params.end_time), timezone: tz },
     };
 
-    if (params.description) data.description = String(params.description);
+    if (params.description) body.description = String(params.description);
 
     // Parse reminders
     if (params.reminders) {
       try {
-        data.reminders = typeof params.reminders === "string" ? JSON.parse(params.reminders) : params.reminders;
-      } catch { /* ignore */ }
+        body.reminders =
+          typeof params.reminders === "string"
+            ? JSON.parse(params.reminders)
+            : params.reminders;
+      } catch {
+        /* ignore parse error */
+      }
     }
 
-    // Parse attendees
-    let attendeeList: any[] | undefined;
-    if (params.attendees) {
-      try {
-        const ids = typeof params.attendees === "string" ? JSON.parse(params.attendees) : params.attendees;
-        if (Array.isArray(ids)) {
-          attendeeList = ids.map((id: string) => ({ type: "user", user_id: id }));
-        }
-      } catch { /* ignore */ }
-    }
+    const qp: Record<string, string | number | boolean | undefined> = {
+      user_id_type: "open_id",
+    };
 
-    const result = await this.client.calendar.v4.calendarEvent.create({
-      path: { calendar_id: String(params.calendar_id) },
-      params: {
-        user_id_type: "open_id" as any,
-      },
-      data,
-    });
+    const result = await feishuPost(
+      "calendar.calendarEvent.create",
+      `/open-apis/calendar/v4/calendars/${calendarId}/events`,
+      body,
+      { userId, params: qp },
+    );
 
     // Add attendees separately if provided
-    if (attendeeList && attendeeList.length > 0 && result?.data?.event?.event_id) {
+    if (params.attendees && (result.data as any)?.event?.event_id) {
+      const eventId = (result.data as any).event.event_id;
       try {
-        await this.client.calendar.v4.calendarEventAttendee.create({
-          path: {
-            calendar_id: String(params.calendar_id),
-            event_id: result.data.event.event_id,
-          },
-          params: {
-            user_id_type: "open_id" as any,
-          },
-          data: {
-            attendees: attendeeList,
-            need_notification: (params.need_notification !== false ? "true" : "false") as any,
-          },
-        });
-      } catch { /* best-effort */ }
+        const ids =
+          typeof params.attendees === "string"
+            ? JSON.parse(params.attendees as string)
+            : params.attendees;
+        if (Array.isArray(ids) && ids.length > 0) {
+          const attendeeList = ids.map((id: string) => ({
+            type: "user",
+            user_id: id,
+          }));
+          await feishuPost(
+            "calendar.calendarEvent.create", // reuse the same operation
+            `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}/attendees`,
+            {
+              attendees: attendeeList,
+              need_notification:
+                params.need_notification !== false,
+            },
+            { userId, params: { user_id_type: "open_id" } },
+          );
+        }
+      } catch {
+        /* best-effort */
+      }
     }
 
-    return result;
+    return result.data;
   }
 
-  private async updateEvent(params: Record<string, unknown>) {
-    const data: any = {};
-    if (params.summary) data.summary = String(params.summary);
-    if (params.description) data.description = String(params.description);
+  private async updateEvent(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
+    const eventId = String(params.event_id);
+    const body: Record<string, unknown> = {};
+
+    if (params.summary) body.summary = String(params.summary);
+    if (params.description) body.description = String(params.description);
     if (params.start_time) {
       const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-      data.start_time = { timestamp: String(params.start_time), timezone: tz };
+      body.start_time = { timestamp: String(params.start_time), timezone: tz };
     }
     if (params.end_time) {
       const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-      data.end_time = { timestamp: String(params.end_time), timezone: tz };
+      body.end_time = { timestamp: String(params.end_time), timezone: tz };
     }
 
-    return this.client.calendar.v4.calendarEvent.patch({
-      path: {
-        calendar_id: String(params.calendar_id),
-        event_id: String(params.event_id),
-      },
-      data,
-    });
+    const result = await feishuPatch(
+      "calendar.calendarEvent.update",
+      `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}`,
+      body,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async deleteEvent(params: Record<string, unknown>) {
-    return this.client.calendar.v4.calendarEvent.delete({
-      path: {
-        calendar_id: String(params.calendar_id),
-        event_id: String(params.event_id),
-      },
-      params: {
-        need_notification: (params.need_notification !== false ? "true" : "false") as any,
-      },
-    });
+  private async deleteEvent(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    const calendarId = String(params.calendar_id);
+    const eventId = String(params.event_id);
+    const needNotification =
+      params.need_notification !== false ? "true" : "false";
+
+    const result = await feishuDelete(
+      "calendar.calendarEvent.delete",
+      `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}`,
+      { userId, params: { need_notification: needNotification } },
+    );
+    return result.data;
   }
 
-  private async getFreeBusy(params: Record<string, unknown>) {
-    return this.client.calendar.v4.freebusy.list({
-      data: {
-        time_min: String(params.time_min),
-        time_max: String(params.time_max),
-        user_id: params.user_ids ? String((params.user_ids as string[])[0] ?? "") : undefined,
-      },
-    });
+  private async getFreeBusy(
+    params: Record<string, unknown>,
+    userId?: string,
+  ) {
+    // freebusy is user_only — will automatically trigger auth prompt if no user token
+    const body: Record<string, unknown> = {
+      time_min: String(params.time_min),
+      time_max: String(params.time_max),
+    };
+
+    if (params.user_ids) {
+      const userIds = params.user_ids as string[];
+      if (userIds.length > 0) {
+        body.user_id = String(userIds[0]);
+      }
+    }
+
+    const result = await feishuPost(
+      "calendar.freebusy.list",
+      "/open-apis/calendar/v4/freebusy/list",
+      body,
+      { userId },
+    );
+    return result.data;
   }
 }
 
+// ─── 注册辅助 ───
+
 export function registerCalendarTools(
   tools: CalendarTools,
-  registerTool: (toolDef: typeof CALENDAR_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof CALENDAR_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   CALENDAR_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) =>
+      tools.execute(toolDef.name, args, userId),
+    );
   });
 }

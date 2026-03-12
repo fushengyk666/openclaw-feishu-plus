@@ -1,10 +1,15 @@
 /**
- * doc.ts — 飞书云文档工具 (Lark SDK)
+ * doc.ts — 飞书云文档工具 (Dual-Auth)
+ *
+ * 所有 API 调用经过 identity 层的双授权决策链路：
+ * - 有 user token → 用 user token
+ * - 无 user token → 回退 tenant token
+ * - user_only 接口 → 生成授权提示
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost } from "../identity/feishu-api.js";
+
+// ─── 工具定义 ───
 
 export const DOC_TOOL_DEFS = [
   {
@@ -56,73 +61,97 @@ export const DOC_TOOL_DEFS = [
   },
 ];
 
+// ─── 工具执行器 ───
+
 export class DocTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(
+    toolName: string,
+    params: Record<string, unknown>,
+    userId?: string,
+  ): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_doc_create":
-        return this.create(params);
+        return this.create(params, userId);
       case "feishu_plus_doc_get":
-        return this.get(params);
+        return this.get(params, userId);
       case "feishu_plus_doc_list_blocks":
-        return this.listBlocks(params);
+        return this.listBlocks(params, userId);
       case "feishu_plus_doc_raw_content":
-        return this.rawContent(params);
+        return this.rawContent(params, userId);
       default:
         throw new Error(`Unknown doc tool: ${toolName}`);
     }
   }
 
-  private async create(params: Record<string, unknown>) {
-    return this.client.docx.v1.document.create({
-      data: {
-        title: String(params.title ?? ""),
-        folder_token: params.folder_token ? String(params.folder_token) : undefined,
-      },
-    });
+  private async create(params: Record<string, unknown>, userId?: string) {
+    const body: Record<string, unknown> = {
+      title: String(params.title ?? ""),
+    };
+    if (params.folder_token) {
+      body.folder_token = String(params.folder_token);
+    }
+
+    const result = await feishuPost(
+      "docx.document.create",
+      "/open-apis/docx/v1/documents",
+      body,
+      { userId },
+    );
+
+    return result.data;
   }
 
-  private async get(params: Record<string, unknown>) {
-    return this.client.docx.v1.document.get({
-      path: { document_id: String(params.document_id) },
-    });
+  private async get(params: Record<string, unknown>, userId?: string) {
+    const docId = String(params.document_id);
+    const result = await feishuGet(
+      "docx.document.get",
+      `/open-apis/docx/v1/documents/${docId}`,
+      { userId },
+    );
+
+    return result.data;
   }
 
-  private async listBlocks(params: Record<string, unknown>) {
-    return this.client.docx.v1.documentBlock.list({
-      path: { document_id: String(params.document_id) },
-      params: {
-        page_size: params.page_size ? Number(params.page_size) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-      },
-    });
+  private async listBlocks(params: Record<string, unknown>, userId?: string) {
+    const docId = String(params.document_id);
+    const queryParams: Record<string, string | number | boolean | undefined> = {};
+
+    if (params.page_size) queryParams.page_size = Number(params.page_size);
+    if (params.page_token) queryParams.page_token = String(params.page_token);
+
+    const result = await feishuGet(
+      "docx.documentBlock.list",
+      `/open-apis/docx/v1/documents/${docId}/blocks`,
+      { userId, params: queryParams },
+    );
+
+    return result.data;
   }
 
-  private async rawContent(params: Record<string, unknown>) {
-    return this.client.docx.v1.document.rawContent({
-      path: { document_id: String(params.document_id) },
-    });
+  private async rawContent(params: Record<string, unknown>, userId?: string) {
+    const docId = String(params.document_id);
+    const result = await feishuGet(
+      "docx.document.rawContent",
+      `/open-apis/docx/v1/documents/${docId}/raw_content`,
+      { userId },
+    );
+
+    return result.data;
   }
 }
 
+// ─── 注册辅助 ───
+
 export function registerDocTools(
   tools: DocTools,
-  registerTool: (toolDef: typeof DOC_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof DOC_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   DOC_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) =>
+      tools.execute(toolDef.name, args, userId),
+    );
   });
 }

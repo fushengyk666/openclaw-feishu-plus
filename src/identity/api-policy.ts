@@ -173,6 +173,21 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     userScopes: ["calendar:calendar:readonly"],
     tenantScopes: ["calendar:calendar:readonly"],
   },
+  "calendar.calendar.create": {
+    support: "both",
+    userScopes: ["calendar:calendar"],
+    tenantScopes: ["calendar:calendar"],
+  },
+  "calendar.calendar.delete": {
+    support: "both",
+    userScopes: ["calendar:calendar"],
+    tenantScopes: ["calendar:calendar"],
+  },
+  "calendar.calendar.update": {
+    support: "both",
+    userScopes: ["calendar:calendar"],
+    tenantScopes: ["calendar:calendar"],
+  },
   "calendar.calendarEvent.list": {
     support: "both",
     userScopes: ["calendar:calendar:readonly"],
@@ -256,6 +271,31 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     support: "both",
     userScopes: ["im:message:readonly"],
     tenantScopes: ["im:message:readonly"],
+  },
+  "im.message.get": {
+    support: "both",
+    userScopes: ["im:message:readonly"],
+    tenantScopes: ["im:message:readonly"],
+  },
+  "im.message.reply": {
+    support: "both",
+    userScopes: ["im:message"],
+    tenantScopes: ["im:message"],
+  },
+  "im.message.delete": {
+    support: "both",
+    userScopes: ["im:message"],
+    tenantScopes: ["im:message"],
+  },
+  "im.message.update": {
+    support: "both",
+    userScopes: ["im:message"],
+    tenantScopes: ["im:message"],
+  },
+  "im.message.forward": {
+    support: "both",
+    userScopes: ["im:message"],
+    tenantScopes: ["im:message"],
   },
 
   // ─── 权限管理 (Permission) ───
