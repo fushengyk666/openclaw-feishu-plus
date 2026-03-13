@@ -11,9 +11,12 @@ openclaw-feishu-plus
 - 持续补齐飞书开放平台核心能力
 - 提供高频 workflow skills 增强体验
 
-## Current Status (2026-03-13, Round 14 — Platform Layer Complete + Streaming Card Fix)
+## Current Status (2026-03-13, Round 15 — Quality-of-life: add npm test alias)
 
 ### ✅ 已完成
+
+#### 开发体验小修
+- `package.json` 增加 `"test": "npm run verify"`，避免 `npm test` 误判失败（CI/习惯命令兼容）
 
 #### 双授权核心架构
 - **identity 层完整落地**：TokenResolver → api-policy → request-executor → feishu-api 链路完整
