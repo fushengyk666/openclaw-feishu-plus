@@ -192,6 +192,8 @@ openclaw plugins install /path/to/openclaw-feishu-plus
 
 ```bash
 # 本地验证（无需凭证）
+npm test
+# 或
 for f in tests/verify-*.ts; do npx tsx "$f"; done
 
 # 真实飞书环境验证
@@ -204,10 +206,11 @@ npx tsx tests/verify-live-feishu-contract.ts
 
 ## 7. 当前限制
 
-1. **card action / callback** 尚未实现
-2. **event subscription** 仅 `im.message.receive_v1`
-3. **send.ts / outbound** 已改走 `identity/feishu-api`（双授权 HTTP 入口），但 user token 的真实发送行为仍需在真实飞书环境中回归验证
-4. **platform 层拆分** 未按 TECHNICAL_PLAN.md 演进到独立 platform 层
+1. **card action / callback**：✅ 已实现最小链路（webhook 收到 action → best-effort 路由到 agent → 回发文本/ack 卡片）；但“更新原卡片/异步任务卡片”等高级交互仍待增强
+2. **event subscription**：仍仅 `im.message.receive_v1`
+3. **user token 真实发送行为**：send.ts/outbound 已走 `identity/feishu-api`（双授权 HTTP 入口），但 user_access_token 在真实环境中的消息发送行为仍需回归验证
+4. **真实飞书环境端到端验证**：live harness 代码已就绪，但需要真实凭证跑通并沉淀结果
+5. **platform 层拆分**：✅ 已按 12 个业务域拆分 platform client（tools 仅做 schema/参数解析），无需再作为限制项
 
 ---
 

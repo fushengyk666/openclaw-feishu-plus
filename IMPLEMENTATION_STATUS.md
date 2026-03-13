@@ -17,6 +17,7 @@ openclaw-feishu-plus
 
 #### 开发体验小修
 - `package.json` 增加 `"test": "npm run verify"`，避免 `npm test` 误判失败（CI/习惯命令兼容）
+- 同步修正文档：`INTEGRATION_GUIDE.md` 的“当前限制”与实际实现对齐（card action 最小链路已实现 / platform 层已完成拆分）
 
 #### 双授权核心架构
 - **identity 层完整落地**：TokenResolver → api-policy → request-executor → feishu-api 链路完整
