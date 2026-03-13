@@ -13,6 +13,8 @@ import {
   rejectApprovalTask,
   cancelApprovalInstance,
 } from "../platform/approval/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const APPROVAL_TOOL_DEFS = [
   {
@@ -21,6 +23,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -39,6 +42,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -69,6 +73,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         instance_id: {
           type: "string",
           description: "审批实例 ID",
@@ -91,6 +96,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -121,6 +127,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -151,6 +158,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -181,6 +189,7 @@ export const APPROVAL_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         approval_code: {
           type: "string",
           description: "审批定义 Code",
@@ -205,35 +214,37 @@ export class ApprovalTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_approval_get_definition":
-        return this.getDefinition(params, userId);
+        return this.getDefinition(params, userId, identityMode);
       case "feishu_plus_approval_list_instances":
-        return this.listInstances(params, userId);
+        return this.listInstances(params, userId, identityMode);
       case "feishu_plus_approval_get_instance":
-        return this.getInstance(params, userId);
+        return this.getInstance(params, userId, identityMode);
       case "feishu_plus_approval_create_instance":
-        return this.createInstance(params, userId);
+        return this.createInstance(params, userId, identityMode);
       case "feishu_plus_approval_approve":
-        return this.approveTask(params, userId);
+        return this.approveTask(params, userId, identityMode);
       case "feishu_plus_approval_reject":
-        return this.rejectTask(params, userId);
+        return this.rejectTask(params, userId, identityMode);
       case "feishu_plus_approval_cancel":
-        return this.cancelInstance(params, userId);
+        return this.cancelInstance(params, userId, identityMode);
       default:
         throw new Error(`Unknown approval tool: ${toolName}`);
     }
   }
 
-  private async getDefinition(params: Record<string, unknown>, userId?: string) {
+  private async getDefinition(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getApprovalDefinition({
       approvalCode: String(params.approval_code),
       locale: params.locale ? String(params.locale) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async listInstances(params: Record<string, unknown>, userId?: string) {
+  private async listInstances(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listApprovalInstances({
       approvalCode: String(params.approval_code),
       startTime: String(params.start_time),
@@ -241,19 +252,21 @@ export class ApprovalTools {
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async getInstance(params: Record<string, unknown>, userId?: string) {
+  private async getInstance(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getApprovalInstance({
       instanceId: String(params.instance_id),
       locale: params.locale ? String(params.locale) : undefined,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async createInstance(params: Record<string, unknown>, userId?: string) {
+  private async createInstance(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     let nodeApproverList: unknown = undefined;
     if (params.node_approver_open_id_list) {
       try {
@@ -273,10 +286,11 @@ export class ApprovalTools {
       departmentId: params.department_id ? String(params.department_id) : undefined,
       nodeApproverOpenIdList: nodeApproverList,
       userId,
+      identityMode,
     });
   }
 
-  private async approveTask(params: Record<string, unknown>, userId?: string) {
+  private async approveTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await approveApprovalTask({
       approvalCode: String(params.approval_code),
       instanceCode: String(params.instance_code),
@@ -284,10 +298,11 @@ export class ApprovalTools {
       comment: params.comment ? String(params.comment) : undefined,
       operatorUserId: params.user_id ? String(params.user_id) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async rejectTask(params: Record<string, unknown>, userId?: string) {
+  private async rejectTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await rejectApprovalTask({
       approvalCode: String(params.approval_code),
       instanceCode: String(params.instance_code),
@@ -295,15 +310,17 @@ export class ApprovalTools {
       comment: params.comment ? String(params.comment) : undefined,
       operatorUserId: params.user_id ? String(params.user_id) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async cancelInstance(params: Record<string, unknown>, userId?: string) {
+  private async cancelInstance(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await cancelApprovalInstance({
       approvalCode: String(params.approval_code),
       instanceCode: String(params.instance_code),
       operatorUserId: params.user_id ? String(params.user_id) : undefined,
       userId,
+      identityMode,
     });
   }
 }

@@ -5,12 +5,13 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function getApprovalDefinition(params: {
   approvalCode: string;
   locale?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "approval.definition.get",
@@ -19,7 +20,7 @@ export async function getApprovalDefinition(params: {
       approval_code: params.approvalCode,
       locale: params.locale ?? "zh-CN",
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -31,6 +32,7 @@ export async function listApprovalInstances(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "approval.instance.list",
@@ -42,7 +44,7 @@ export async function listApprovalInstances(params: {
       page_size: typeof params.pageSize === "number" ? params.pageSize : 100,
       page_token: params.pageToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -52,6 +54,7 @@ export async function getApprovalInstance(params: {
   locale?: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "approval.instance.get",
@@ -74,6 +77,7 @@ export async function createApprovalInstance(params: {
   departmentId?: string;
   nodeApproverOpenIdList?: unknown;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {
     approval_code: params.approvalCode,
@@ -89,7 +93,7 @@ export async function createApprovalInstance(params: {
     "approval.instance.create",
     "/open-apis/approval/v4/instances",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -101,6 +105,7 @@ export async function approveApprovalTask(params: {
   comment?: string;
   operatorUserId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "approval.task.approve",
@@ -112,7 +117,7 @@ export async function approveApprovalTask(params: {
       comment: params.comment,
       user_id: params.operatorUserId,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -124,6 +129,7 @@ export async function rejectApprovalTask(params: {
   comment?: string;
   operatorUserId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "approval.task.reject",
@@ -135,7 +141,7 @@ export async function rejectApprovalTask(params: {
       comment: params.comment,
       user_id: params.operatorUserId,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -145,6 +151,7 @@ export async function cancelApprovalInstance(params: {
   instanceCode: string;
   operatorUserId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "approval.instance.cancel",
@@ -154,7 +161,7 @@ export async function cancelApprovalInstance(params: {
       instance_code: params.instanceCode,
       user_id: params.operatorUserId,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

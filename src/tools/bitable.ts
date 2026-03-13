@@ -12,6 +12,8 @@ import {
   updateBitableRecord,
   deleteBitableRecord,
 } from "../platform/bitable/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const BITABLE_TOOL_DEFS = [
   {
@@ -20,6 +22,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
       },
       required: ["app_token"],
@@ -31,6 +34,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
       },
       required: ["app_token"],
@@ -42,6 +46,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
         table_id: { type: "string", description: "表格 ID" },
         page_size: { type: "number", description: "每页数量（默认 20）" },
@@ -60,6 +65,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
         table_id: { type: "string", description: "表格 ID" },
         fields: { type: "string", description: "记录字段（JSON 字符串）" },
@@ -74,6 +80,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
         table_id: { type: "string", description: "表格 ID" },
         record_id: { type: "string", description: "记录 ID" },
@@ -88,6 +95,7 @@ export const BITABLE_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         app_token: { type: "string", description: "应用 token" },
         table_id: { type: "string", description: "表格 ID" },
         record_id: { type: "string", description: "记录 ID" },
@@ -99,39 +107,42 @@ export const BITABLE_TOOL_DEFS = [
 
 export class BitableTools {
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_bitable_get_app":
-        return this.getApp(params, userId);
+        return this.getApp(params, userId, identityMode);
       case "feishu_plus_bitable_list_tables":
-        return this.listTables(params, userId);
+        return this.listTables(params, userId, identityMode);
       case "feishu_plus_bitable_list_records":
-        return this.listRecords(params, userId);
+        return this.listRecords(params, userId, identityMode);
       case "feishu_plus_bitable_create_record":
-        return this.createRecord(params, userId);
+        return this.createRecord(params, userId, identityMode);
       case "feishu_plus_bitable_update_record":
-        return this.updateRecord(params, userId);
+        return this.updateRecord(params, userId, identityMode);
       case "feishu_plus_bitable_delete_record":
-        return this.deleteRecord(params, userId);
+        return this.deleteRecord(params, userId, identityMode);
       default:
         throw new Error(`Unknown bitable tool: ${toolName}`);
     }
   }
 
-  private async getApp(params: Record<string, unknown>, userId?: string) {
+  private async getApp(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getBitableApp({
       appToken: String(params.app_token),
       userId,
+      identityMode,
     });
   }
 
-  private async listTables(params: Record<string, unknown>, userId?: string) {
+  private async listTables(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listBitableTables({
       appToken: String(params.app_token),
       userId,
+      identityMode,
     });
   }
 
-  private async listRecords(params: Record<string, unknown>, userId?: string) {
+  private async listRecords(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listBitableRecords({
       appToken: String(params.app_token),
       tableId: String(params.table_id),
@@ -142,10 +153,11 @@ export class BitableTools {
       sort: params.sort ? String(params.sort) : undefined,
       filter: params.filter ? String(params.filter) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async createRecord(params: Record<string, unknown>, userId?: string) {
+  private async createRecord(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
     return await createBitableRecord({
       appToken: String(params.app_token),
@@ -153,10 +165,11 @@ export class BitableTools {
       fields,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async updateRecord(params: Record<string, unknown>, userId?: string) {
+  private async updateRecord(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
     return await updateBitableRecord({
       appToken: String(params.app_token),
@@ -164,15 +177,17 @@ export class BitableTools {
       recordId: String(params.record_id),
       fields,
       userId,
+      identityMode,
     });
   }
 
-  private async deleteRecord(params: Record<string, unknown>, userId?: string) {
+  private async deleteRecord(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await deleteBitableRecord({
       appToken: String(params.app_token),
       tableId: String(params.table_id),
       recordId: String(params.record_id),
       userId,
+      identityMode,
     });
   }
 }

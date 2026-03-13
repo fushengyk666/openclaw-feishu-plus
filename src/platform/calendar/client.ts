@@ -10,12 +10,14 @@ import {
   feishuPost,
   feishuPatch,
   feishuDelete,
+  type IdentityMode,
 } from "../../identity/feishu-api.js";
 
 export async function listCalendars(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const qp: Record<string, string | number | boolean | undefined> = {};
   // Feishu calendar list API requires page_size >= 50
@@ -25,7 +27,7 @@ export async function listCalendars(params: {
   const result = await feishuGet(
     "calendar.calendar.list",
     "/open-apis/calendar/v4/calendars",
-    { userId: params.userId, params: qp },
+    { userId: params.userId, identityMode: params.identityMode, params: qp },
   );
   return result.data;
 }
@@ -36,6 +38,7 @@ export async function createCalendar(params: {
   permissions?: string;
   color?: number;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = { summary: params.summary };
   if (params.description) body.description = params.description;
@@ -46,7 +49,7 @@ export async function createCalendar(params: {
     "calendar.calendar.create",
     "/open-apis/calendar/v4/calendars",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -54,11 +57,12 @@ export async function createCalendar(params: {
 export async function deleteCalendar(params: {
   calendarId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuDelete(
     "calendar.calendar.delete",
     `/open-apis/calendar/v4/calendars/${params.calendarId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -70,6 +74,7 @@ export async function updateCalendar(params: {
   permissions?: string;
   color?: number;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {};
   if (params.summary) body.summary = params.summary;
@@ -81,7 +86,7 @@ export async function updateCalendar(params: {
     "calendar.calendar.update",
     `/open-apis/calendar/v4/calendars/${params.calendarId}`,
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -93,6 +98,7 @@ export async function listCalendarEvents(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const qp: Record<string, string | number | boolean | undefined> = {};
   if (params.startTime) qp.start_time = params.startTime;
@@ -104,7 +110,7 @@ export async function listCalendarEvents(params: {
   const result = await feishuGet(
     "calendar.calendarEvent.list",
     `/open-apis/calendar/v4/calendars/${params.calendarId}/events`,
-    { userId: params.userId, params: qp },
+    { userId: params.userId, identityMode: params.identityMode, params: qp },
   );
   return result.data;
 }
@@ -121,6 +127,7 @@ export async function createCalendarEvent(params: {
   attendees?: string[];
   needNotification?: boolean;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const tz = params.timezone ?? "Asia/Shanghai";
 
@@ -140,7 +147,7 @@ export async function createCalendarEvent(params: {
     "calendar.calendarEvent.create",
     `/open-apis/calendar/v4/calendars/${params.calendarId}/events`,
     body,
-    { userId: params.userId, params: qp },
+    { userId: params.userId, identityMode: params.identityMode, params: qp },
   );
 
   const eventId = (result.data as any)?.event?.event_id;
@@ -160,7 +167,7 @@ export async function createCalendarEvent(params: {
           attendees: attendeeList,
           need_notification: params.needNotification !== false,
         },
-        { userId: params.userId, params: { user_id_type: "open_id" } },
+        { userId: params.userId, identityMode: params.identityMode, params: { user_id_type: "open_id" } },
       );
     } catch {
       // ignore — event itself is created.
@@ -179,6 +186,7 @@ export async function updateCalendarEvent(params: {
   endTime?: string;
   timezone?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {};
   if (params.summary) body.summary = params.summary;
@@ -196,7 +204,7 @@ export async function updateCalendarEvent(params: {
     "calendar.calendarEvent.update",
     `/open-apis/calendar/v4/calendars/${params.calendarId}/events/${params.eventId}`,
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -206,13 +214,14 @@ export async function deleteCalendarEvent(params: {
   eventId: string;
   needNotification?: boolean;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const need_notification = params.needNotification !== false ? "true" : "false";
 
   const result = await feishuDelete(
     "calendar.calendarEvent.delete",
     `/open-apis/calendar/v4/calendars/${params.calendarId}/events/${params.eventId}`,
-    { userId: params.userId, params: { need_notification } },
+    { userId: params.userId, identityMode: params.identityMode, params: { need_notification } },
   );
   return result.data;
 }
@@ -221,6 +230,7 @@ export async function listFreeBusy(params: {
   timeMin: string;
   timeMax: string;
   userId?: string;
+  identityMode?: IdentityMode;
   // Feishu API takes a single user_id; tools accept list
   targetUserId?: string;
 }) {
@@ -235,7 +245,7 @@ export async function listFreeBusy(params: {
     "calendar.freebusy.list",
     "/open-apis/calendar/v4/freebusy/list",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

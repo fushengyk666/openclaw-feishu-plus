@@ -5,12 +5,13 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function getUser(params: {
   targetUserId: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "contact.user.get",
@@ -29,6 +30,7 @@ export async function batchGetUsers(params: {
   userIds: string[];
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "contact.user.batchGet",
@@ -49,6 +51,7 @@ export async function batchGetUsers(params: {
 export async function getUserMe(params: {
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "contact.user.me",
@@ -67,6 +70,7 @@ export async function getDepartment(params: {
   departmentId: string;
   departmentIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "contact.department.get",
@@ -88,6 +92,7 @@ export async function listDepartmentChildren(params: {
   pageToken?: string;
   fetchChild?: boolean;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "contact.department.children.list",
@@ -113,6 +118,7 @@ export async function listDepartmentUsers(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "contact.department.user.list",

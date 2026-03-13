@@ -13,6 +13,7 @@ import {
   feishuPost,
   feishuPut,
 } from "../identity/feishu-api.js";
+import type { IdentityMode } from "../identity/token-resolver.js";
 import { resolveReceiveIdType } from "./targets.js";
 
 export interface SendMessageParams {
@@ -23,14 +24,15 @@ export interface SendMessageParams {
   content?: string;
   accountId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }
 
 export interface SendRequestLike {
-  post<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
-  patch<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
-  put<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
-  get<T = any>(operation: string, path: string, opts?: { userId?: string; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
-  delete<T = any>(operation: string, path: string, opts?: { userId?: string; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
+  post<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; identityMode?: IdentityMode; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
+  patch<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; identityMode?: IdentityMode; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
+  put<T = any>(operation: string, path: string, body?: unknown, opts?: { userId?: string; identityMode?: IdentityMode; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
+  get<T = any>(operation: string, path: string, opts?: { userId?: string; identityMode?: IdentityMode; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
+  delete<T = any>(operation: string, path: string, opts?: { userId?: string; identityMode?: IdentityMode; params?: Record<string, string | number | boolean | undefined> }): Promise<{ data: T }>;
 }
 
 export interface SendModuleHooks {
@@ -82,7 +84,7 @@ export function __resetSendModuleHooksForTests(): void {
  * Send a text/card/file/image message to Feishu.
  */
 export async function sendMessageFeishu(params: SendMessageParams): Promise<any> {
-  const { to, text, msgType, content, userId } = params;
+  const { to, text, msgType, content, userId, identityMode } = params;
 
   const receiveIdType = resolveReceiveIdType(to);
   const finalMsgType = msgType || "text";
@@ -98,6 +100,7 @@ export async function sendMessageFeishu(params: SendMessageParams): Promise<any>
     },
     {
       userId,
+      identityMode,
       params: { receive_id_type: receiveIdType },
     },
   );
@@ -114,6 +117,7 @@ export async function sendCardFeishu(params: {
   card: any;
   accountId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }): Promise<any> {
   return sendModuleHooks.sendMessageFeishu({
     cfg: params.cfg,
@@ -122,6 +126,7 @@ export async function sendCardFeishu(params: {
     content: JSON.stringify(params.card),
     accountId: params.accountId,
     userId: params.userId,
+    identityMode: params.identityMode,
   });
 }
 
@@ -134,12 +139,13 @@ export async function updateCardFeishu(params: {
   card: any;
   accountId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }): Promise<any> {
   const result = await requestLike.patch(
     "im.message.update",
     `/open-apis/im/v1/messages/${params.messageId}`,
     { content: JSON.stringify(params.card) },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -154,6 +160,7 @@ export async function editMessageFeishu(params: {
   content: string;
   accountId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }): Promise<any> {
   const result = await requestLike.put(
     "im.message.update",
@@ -162,7 +169,7 @@ export async function editMessageFeishu(params: {
       msg_type: params.msgType,
       content: params.content,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -175,11 +182,12 @@ export async function getMessageFeishu(params: {
   messageId: string;
   accountId?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }): Promise<any> {
   const result = await requestLike.get(
     "im.message.get",
     `/open-apis/im/v1/messages/${params.messageId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

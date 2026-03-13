@@ -5,16 +5,17 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function getSpreadsheet(params: {
   spreadsheetToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "sheets.spreadsheet.get",
     `/open-apis/sheets/v3/spreadsheets/${params.spreadsheetToken}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -23,6 +24,7 @@ export async function createSpreadsheet(params: {
   title: string;
   folderToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "sheets.spreadsheet.create",
@@ -31,7 +33,7 @@ export async function createSpreadsheet(params: {
       title: params.title,
       folder_token: params.folderToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -41,12 +43,13 @@ export async function querySheet(params: {
   sheetId: string;
   range?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const range = params.range ?? `${params.sheetId}!A1:Z1000`;
   const result = await feishuGet(
     "sheets.spreadsheet.query",
     `/open-apis/sheets/v2/spreadsheets/${params.spreadsheetToken}/values/${encodeURIComponent(range)}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -56,6 +59,7 @@ export async function findInSheet(params: {
   sheetId: string;
   find: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const range = `${params.sheetId}!A1:Z1000`;
   const result = await feishuPost(
@@ -65,7 +69,7 @@ export async function findInSheet(params: {
       find_condition: { range },
       find: params.find,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -73,11 +77,12 @@ export async function findInSheet(params: {
 export async function listSheets(params: {
   spreadsheetToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "sheets.spreadsheet.listSheets",
     `/open-apis/sheets/v3/spreadsheets/${params.spreadsheetToken}/sheets/query`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

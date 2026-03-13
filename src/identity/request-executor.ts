@@ -6,7 +6,7 @@
  */
 
 import { TokenResolver, NeedUserAuthorizationError } from "./token-resolver.js";
-import type { ResolveTokenResult } from "./token-resolver.js";
+import type { ResolveTokenResult, IdentityMode } from "./token-resolver.js";
 
 // ─── 类型定义 ───
 
@@ -15,6 +15,8 @@ export interface ExecuteOptions<T> {
   operation: string;
   /** 当前用户 openId（可选） */
   userId?: string;
+  /** 身份模式覆盖（可选，默认 auto） */
+  identityMode?: IdentityMode;
   /** 实际执行函数，接收 token 上下文 */
   invoke: (ctx: InvokeContext) => Promise<T>;
   /** 401 时是否自动重试一次（默认 true） */
@@ -58,6 +60,7 @@ function getResolver(): TokenResolver {
  * const result = await executeFeishuRequest({
  *   operation: "docx.document.create",
  *   userId: currentUserId,
+ *   identityMode: "user",
  *   invoke: async ({ accessToken, authorizationHeader }) => {
  *     return await fetch(url, {
  *       headers: { Authorization: authorizationHeader },
@@ -80,6 +83,7 @@ export async function executeFeishuRequest<T>(
   const resolved = await resolver.resolve({
     operation: opts.operation,
     userId: opts.userId,
+    identityMode: opts.identityMode,
   });
 
   const ctx = buildInvokeContext(resolved);
@@ -96,6 +100,7 @@ export async function executeFeishuRequest<T>(
       const retryResolved = await resolver.resolve({
         operation: opts.operation,
         userId: opts.userId,
+        identityMode: opts.identityMode,
       });
 
       // 第三步：使用新 token 重试

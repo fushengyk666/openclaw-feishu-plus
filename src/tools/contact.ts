@@ -12,6 +12,8 @@ import {
   listDepartmentChildren,
   listDepartmentUsers,
 } from "../platform/contact/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const CONTACT_TOOL_DEFS = [
   {
@@ -20,6 +22,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         user_id: { type: "string", description: "用户 ID" },
         user_id_type: {
           type: "string",
@@ -35,6 +38,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         user_ids: {
           type: "array",
           items: { type: "string" },
@@ -54,6 +58,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         user_id_type: {
           type: "string",
           description: "用户 ID 类型（open_id/user_id/union_id），默认 open_id",
@@ -67,6 +72,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         department_id: { type: "string", description: "部门 ID" },
         department_id_type: {
           type: "string",
@@ -82,6 +88,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         department_id: { type: "string", description: "父部门 ID" },
         department_id_type: {
           type: "string",
@@ -100,6 +107,7 @@ export const CONTACT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         department_id: { type: "string", description: "部门 ID" },
         department_id_type: {
           type: "string",
@@ -123,56 +131,61 @@ export class ContactTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_contact_user_get":
-        return this.getUser(params, userId);
+        return this.getUser(params, userId, identityMode);
       case "feishu_plus_contact_user_batch_get":
-        return this.batchGetUsers(params, userId);
+        return this.batchGetUsers(params, userId, identityMode);
       case "feishu_plus_contact_user_me":
-        return this.getUserMe(params, userId);
+        return this.getUserMe(params, userId, identityMode);
       case "feishu_plus_contact_department_get":
-        return this.getDepartment(params, userId);
+        return this.getDepartment(params, userId, identityMode);
       case "feishu_plus_contact_department_list_children":
-        return this.listDepartmentChildren(params, userId);
+        return this.listDepartmentChildren(params, userId, identityMode);
       case "feishu_plus_contact_department_list_users":
-        return this.listDepartmentUsers(params, userId);
+        return this.listDepartmentUsers(params, userId, identityMode);
       default:
         throw new Error(`Unknown contact tool: ${toolName}`);
     }
   }
 
-  private async getUser(params: Record<string, unknown>, userId?: string) {
+  private async getUser(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getUser({
       targetUserId: String(params.user_id),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async batchGetUsers(params: Record<string, unknown>, userId?: string) {
+  private async batchGetUsers(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await batchGetUsers({
       userIds: Array.isArray(params.user_ids) ? params.user_ids.map((v) => String(v)) : [],
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async getUserMe(params: Record<string, unknown>, userId?: string) {
+  private async getUserMe(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getUserMe({
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async getDepartment(params: Record<string, unknown>, userId?: string) {
+  private async getDepartment(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getDepartment({
       departmentId: String(params.department_id),
       departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async listDepartmentChildren(params: Record<string, unknown>, userId?: string) {
+  private async listDepartmentChildren(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listDepartmentChildren({
       departmentId: String(params.department_id),
       departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
@@ -180,10 +193,11 @@ export class ContactTools {
       pageToken: params.page_token ? String(params.page_token) : undefined,
       fetchChild: params.fetch_child !== undefined ? Boolean(params.fetch_child) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async listDepartmentUsers(params: Record<string, unknown>, userId?: string) {
+  private async listDepartmentUsers(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listDepartmentUsers({
       departmentId: String(params.department_id),
       departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
@@ -191,6 +205,7 @@ export class ContactTools {
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 }

@@ -12,6 +12,8 @@ import {
   searchDoc,
   searchApp,
 } from "../platform/search/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const SEARCH_TOOL_DEFS = [
   {
@@ -20,6 +22,7 @@ export const SEARCH_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         query: {
           type: "string",
           description: "搜索关键词",
@@ -68,6 +71,7 @@ export const SEARCH_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         search_key: {
           type: "string",
           description: "搜索关键词",
@@ -105,6 +109,7 @@ export const SEARCH_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         query: {
           type: "string",
           description: "搜索关键词",
@@ -129,19 +134,20 @@ export class SearchTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_search_message":
-        return this.searchMessage(params, userId);
+        return this.searchMessage(params, userId, identityMode);
       case "feishu_plus_search_doc":
-        return this.searchDoc(params, userId);
+        return this.searchDoc(params, userId, identityMode);
       case "feishu_plus_search_app":
-        return this.searchApp(params, userId);
+        return this.searchApp(params, userId, identityMode);
       default:
         throw new Error(`Unknown search tool: ${toolName}`);
     }
   }
 
-  private async searchMessage(params: Record<string, unknown>, userId?: string) {
+  private async searchMessage(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await searchMessage({
       query: String(params.query),
       chatIds: Array.isArray(params.chat_ids) ? params.chat_ids.map(String) : undefined,
@@ -153,10 +159,11 @@ export class SearchTools {
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async searchDoc(params: Record<string, unknown>, userId?: string) {
+  private async searchDoc(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await searchDoc({
       searchKey: String(params.search_key),
       ownerIds: Array.isArray(params.owner_ids) ? params.owner_ids.map(String) : undefined,
@@ -165,15 +172,17 @@ export class SearchTools {
       count: params.count !== undefined ? Number(params.count) : undefined,
       offset: params.offset !== undefined ? Number(params.offset) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async searchApp(params: Record<string, unknown>, userId?: string) {
+  private async searchApp(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await searchApp({
       query: String(params.query),
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 }

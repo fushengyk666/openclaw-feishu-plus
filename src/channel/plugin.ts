@@ -34,18 +34,7 @@ import {
 // Messaging & Onboarding
 import { sendMessageFeishu } from "./send.js";
 import { feishuPlusOnboardingAdapter } from "./onboarding.js";
-import {
-  STREAMING_ELEMENT_ID,
-  buildThinkingStreamingCard,
-  buildFinalStreamingCard,
-  resolveStreamingTarget,
-  buildStreamingReferenceMessage,
-  buildStreamingContentUpdate,
-  buildStreamingFinalizeUpdate,
-  buildStreamingSettingsUpdate,
-} from "./streaming-card.js";
 import { createStreamingCardSdk } from "./streaming-card-executor.js";
-import { executeStreamingDispatch } from "./streaming-dispatch-executor.js";
 import { StreamingSession } from "./streaming-session.js";
 
 // Policy
@@ -716,11 +705,28 @@ async function handleInboundMessage(params: {
           deliver: async (payload: any, info: any) => {
             await session.deliver(payload, info);
           },
+          onIdle: async () => {
+            await session.closeIfNeeded();
+          },
+          onError: async (err: any) => {
+            errorFn(`feishu-plus[${accountId}]: buffered dispatcher error: ${String(err)}`);
+            await session.closeIfNeeded();
+          },
+        },
+        replyOptions: {
+          disableBlockStreaming: true,
+          onPartialReply: async (payload: any) => {
+            const partialText = payload?.text ?? "";
+            if (!partialText?.trim()) return;
+            await session.onPartialText(partialText);
+          },
         },
       });
+      await session.closeIfNeeded();
       logFn(`feishu-plus[${accountId}]: dispatchReply result: ${JSON.stringify(result)}`);
     } catch (dispatchErr: any) {
       errorFn(`feishu-plus[${accountId}]: dispatchReply failed: ${String(dispatchErr)}`);
+      await session.closeIfNeeded();
     } finally {
       await removeTyping();
     }

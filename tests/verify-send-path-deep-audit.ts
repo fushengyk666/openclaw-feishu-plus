@@ -93,7 +93,7 @@ async function main() {
   console.log("\n── Tool Files ──");
 
   const toolFiles = listFiles("tools");
-  const toolsWithoutOauth = toolFiles.filter(f => f !== "oauth-tool.ts");
+  const toolsWithoutOauth = toolFiles.filter(f => f !== "oauth-tool.ts" && f !== "identity-mode.ts");
 
   check(`all ${toolsWithoutOauth.length} tool files route through identity/feishu-api (directly or via platform)`, () => {
     const violations: string[] = [];

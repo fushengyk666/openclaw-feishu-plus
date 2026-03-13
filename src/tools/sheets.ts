@@ -11,6 +11,8 @@ import {
   findInSheet,
   listSheets,
 } from "../platform/sheets/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const SHEETS_TOOL_DEFS = [
   {
@@ -19,6 +21,7 @@ export const SHEETS_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         spreadsheet_token: { type: "string", description: "电子表格 token" },
       },
       required: ["spreadsheet_token"],
@@ -30,6 +33,7 @@ export const SHEETS_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         title: { type: "string", description: "表格标题" },
         folder_token: { type: "string", description: "目标文件夹 token（可选）" },
       },
@@ -42,6 +46,7 @@ export const SHEETS_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         spreadsheet_token: { type: "string", description: "电子表格 token" },
         sheet_id: { type: "string", description: "工作表 ID" },
         range: { type: "string", description: "查询范围（如 A1:C10）" },
@@ -55,6 +60,7 @@ export const SHEETS_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         spreadsheet_token: { type: "string", description: "电子表格 token" },
         sheet_id: { type: "string", description: "工作表 ID" },
         find: { type: "string", description: "搜索内容" },
@@ -68,6 +74,7 @@ export const SHEETS_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         spreadsheet_token: { type: "string", description: "电子表格 token" },
       },
       required: ["spreadsheet_token"],
@@ -77,59 +84,65 @@ export const SHEETS_TOOL_DEFS = [
 
 export class SheetsTools {
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_sheets_get":
-        return this.getSpreadsheet(params, userId);
+        return this.getSpreadsheet(params, userId, identityMode);
       case "feishu_plus_sheets_create":
-        return this.createSpreadsheet(params, userId);
+        return this.createSpreadsheet(params, userId, identityMode);
       case "feishu_plus_sheets_query":
-        return this.querySheet(params, userId);
+        return this.querySheet(params, userId, identityMode);
       case "feishu_plus_sheets_find":
-        return this.findInSheet(params, userId);
+        return this.findInSheet(params, userId, identityMode);
       case "feishu_plus_sheets_list":
-        return this.listSheets(params, userId);
+        return this.listSheets(params, userId, identityMode);
       default:
         throw new Error(`Unknown sheets tool: ${toolName}`);
     }
   }
 
-  private async getSpreadsheet(params: Record<string, unknown>, userId?: string) {
+  private async getSpreadsheet(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getSpreadsheet({
       spreadsheetToken: String(params.spreadsheet_token),
       userId,
+      identityMode,
     });
   }
 
-  private async createSpreadsheet(params: Record<string, unknown>, userId?: string) {
+  private async createSpreadsheet(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await createSpreadsheet({
       title: String(params.title),
       folderToken: params.folder_token ? String(params.folder_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async querySheet(params: Record<string, unknown>, userId?: string) {
+  private async querySheet(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await querySheet({
       spreadsheetToken: String(params.spreadsheet_token),
       sheetId: String(params.sheet_id),
       range: params.range ? String(params.range) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async findInSheet(params: Record<string, unknown>, userId?: string) {
+  private async findInSheet(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await findInSheet({
       spreadsheetToken: String(params.spreadsheet_token),
       sheetId: String(params.sheet_id),
       find: String(params.find),
       userId,
+      identityMode,
     });
   }
 
-  private async listSheets(params: Record<string, unknown>, userId?: string) {
+  private async listSheets(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listSheets({
       spreadsheetToken: String(params.spreadsheet_token),
       userId,
+      identityMode,
     });
   }
 }

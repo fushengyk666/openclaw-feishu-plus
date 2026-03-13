@@ -13,6 +13,8 @@ import {
   listDocxBlocks,
   getDocxRawContent,
 } from "../platform/docs/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 // ─── 工具定义 ───
 
@@ -23,6 +25,7 @@ export const DOC_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         title: { type: "string", description: "文档标题" },
         folder_token: { type: "string", description: "目标文件夹 token（可选）" },
       },
@@ -35,6 +38,7 @@ export const DOC_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         document_id: { type: "string", description: "文档 ID" },
       },
       required: ["document_id"],
@@ -46,6 +50,7 @@ export const DOC_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         document_id: { type: "string", description: "文档 ID" },
         page_size: { type: "number", description: "每页数量（默认 50）" },
         page_token: { type: "string", description: "分页 token" },
@@ -59,6 +64,7 @@ export const DOC_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         document_id: { type: "string", description: "文档 ID" },
       },
       required: ["document_id"],
@@ -74,21 +80,22 @@ export class DocTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_doc_create":
-        return this.create(params, userId);
+        return this.create(params, userId, identityMode);
       case "feishu_plus_doc_get":
-        return this.get(params, userId);
+        return this.get(params, userId, identityMode);
       case "feishu_plus_doc_list_blocks":
-        return this.listBlocks(params, userId);
+        return this.listBlocks(params, userId, identityMode);
       case "feishu_plus_doc_raw_content":
-        return this.rawContent(params, userId);
+        return this.rawContent(params, userId, identityMode);
       default:
         throw new Error(`Unknown doc tool: ${toolName}`);
     }
   }
 
-  private async create(params: Record<string, unknown>, userId?: string) {
+  private async create(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const body: Record<string, unknown> = {
       title: String(params.title ?? ""),
     };
@@ -100,27 +107,29 @@ export class DocTools {
       title: String(body.title ?? ""),
       folderToken: typeof body.folder_token === "string" ? body.folder_token : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async get(params: Record<string, unknown>, userId?: string) {
+  private async get(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const docId = String(params.document_id);
-    return await getDocxDocument({ documentId: docId, userId });
+    return await getDocxDocument({ documentId: docId, userId, identityMode });
   }
 
-  private async listBlocks(params: Record<string, unknown>, userId?: string) {
+  private async listBlocks(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const docId = String(params.document_id);
     return await listDocxBlocks({
       documentId: docId,
       pageSize: typeof params.page_size === "number" ? params.page_size : params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async rawContent(params: Record<string, unknown>, userId?: string) {
+  private async rawContent(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     const docId = String(params.document_id);
-    return await getDocxRawContent({ documentId: docId, userId });
+    return await getDocxRawContent({ documentId: docId, userId, identityMode });
   }
 }
 

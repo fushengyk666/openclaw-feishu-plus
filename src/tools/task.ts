@@ -11,6 +11,8 @@ import {
   updateTask,
   completeTask,
 } from "../platform/task/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const TASK_TOOL_DEFS = [
   {
@@ -19,6 +21,7 @@ export const TASK_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         task_id: { type: "string", description: "任务 ID" },
         user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id）" },
       },
@@ -31,6 +34,7 @@ export const TASK_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         page_size: { type: "number", description: "每页数量（默认 50）" },
         page_token: { type: "string", description: "分页 token" },
         completed: { type: "boolean", description: "是否已完成" },
@@ -44,6 +48,7 @@ export const TASK_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         summary: { type: "string", description: "任务标题" },
         description: { type: "string", description: "任务描述" },
         due_time: { type: "string", description: "截止时间（Unix 时间戳，秒）" },
@@ -60,6 +65,7 @@ export const TASK_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         task_id: { type: "string", description: "任务 ID" },
         summary: { type: "string", description: "任务标题" },
         description: { type: "string", description: "任务描述" },
@@ -77,6 +83,7 @@ export const TASK_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         task_id: { type: "string", description: "任务 ID" },
         user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id）" },
       },
@@ -87,41 +94,44 @@ export const TASK_TOOL_DEFS = [
 
 export class TaskTools {
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_task_get":
-        return this.getTask(params, userId);
+        return this.getTask(params, userId, identityMode);
       case "feishu_plus_task_list":
-        return this.listTasks(params, userId);
+        return this.listTasks(params, userId, identityMode);
       case "feishu_plus_task_create":
-        return this.createTask(params, userId);
+        return this.createTask(params, userId, identityMode);
       case "feishu_plus_task_update":
-        return this.updateTask(params, userId);
+        return this.updateTask(params, userId, identityMode);
       case "feishu_plus_task_complete":
-        return this.completeTask(params, userId);
+        return this.completeTask(params, userId, identityMode);
       default:
         throw new Error(`Unknown task tool: ${toolName}`);
     }
   }
 
-  private async getTask(params: Record<string, unknown>, userId?: string) {
+  private async getTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getTask({
       taskId: String(params.task_id),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async listTasks(params: Record<string, unknown>, userId?: string) {
+  private async listTasks(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listTasks({
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async createTask(params: Record<string, unknown>, userId?: string) {
+  private async createTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     let followerIds: string[] | undefined;
     if (params.follower_ids) {
       try {
@@ -140,10 +150,11 @@ export class TaskTools {
       followerIds,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async updateTask(params: Record<string, unknown>, userId?: string) {
+  private async updateTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await updateTask({
       taskId: String(params.task_id),
       summary: params.summary !== undefined ? String(params.summary) : undefined,
@@ -153,14 +164,16 @@ export class TaskTools {
       assignee: params.assignee !== undefined ? String(params.assignee) : undefined,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async completeTask(params: Record<string, unknown>, userId?: string) {
+  private async completeTask(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await completeTask({
       taskId: String(params.task_id),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 }

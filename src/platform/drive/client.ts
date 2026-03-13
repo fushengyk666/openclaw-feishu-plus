@@ -5,7 +5,7 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost, feishuDelete } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, feishuDelete, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function listDriveFiles(params: {
   folderToken?: string;
@@ -14,6 +14,7 @@ export async function listDriveFiles(params: {
   orderBy?: string;
   direction?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "drive.file.list",
@@ -35,6 +36,7 @@ export async function listDriveFiles(params: {
 export async function getDriveFile(params: {
   fileToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.file.get",
@@ -42,7 +44,7 @@ export async function getDriveFile(params: {
     {
       request_docs: [{ doc_token: params.fileToken, doc_type: "doc" }],
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -50,6 +52,7 @@ export async function getDriveFile(params: {
 export async function downloadDriveFile(params: {
   fileToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.file.download",
@@ -57,7 +60,7 @@ export async function downloadDriveFile(params: {
     {
       request_docs: [{ doc_token: params.fileToken, doc_type: "file" }],
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -67,6 +70,7 @@ export async function uploadDriveFile(params: {
   fileName: string;
   fileSize: number;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   return {
     message: "File upload requires actual file content. Use the Feishu drive upload API with multipart form data.",
@@ -80,6 +84,7 @@ export async function createDriveFolder(params: {
   parentToken: string;
   folderName: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.file.createFolder",
@@ -88,7 +93,7 @@ export async function createDriveFolder(params: {
       name: params.folderName,
       folder_token: params.parentToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -97,6 +102,7 @@ export async function deleteDriveFile(params: {
   fileToken: string;
   type: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuDelete(
     "drive.file.delete",
@@ -115,6 +121,7 @@ export async function copyDriveFile(params: {
   type: string;
   folderToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.file.copy",
@@ -124,7 +131,7 @@ export async function copyDriveFile(params: {
       type: params.type,
       folder_token: params.folderToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -134,6 +141,7 @@ export async function moveDriveFile(params: {
   type: string;
   folderToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.file.move",
@@ -142,7 +150,7 @@ export async function moveDriveFile(params: {
       type: params.type,
       folder_token: params.folderToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

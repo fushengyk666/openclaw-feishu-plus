@@ -9,6 +9,7 @@ import {
   feishuGet,
   feishuPost,
   feishuDelete,
+  type IdentityMode,
 } from "../../identity/feishu-api.js";
 
 export async function listChats(params: {
@@ -16,6 +17,7 @@ export async function listChats(params: {
   pageToken?: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const qp: Record<string, string | number | boolean | undefined> = {};
   if (typeof params.pageSize === "number") qp.page_size = params.pageSize;
@@ -25,7 +27,7 @@ export async function listChats(params: {
   const result = await feishuGet(
     "im.chat.list",
     "/open-apis/im/v1/chats",
-    { userId: params.userId, params: qp },
+    { userId: params.userId, identityMode: params.identityMode, params: qp },
   );
   return result.data;
 }
@@ -33,11 +35,12 @@ export async function listChats(params: {
 export async function getChat(params: {
   chatId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "im.chat.get",
     `/open-apis/im/v1/chats/${params.chatId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -47,6 +50,7 @@ export async function sendMessageToChat(params: {
   msgType: string;
   content: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {
     receive_id: params.chatId,
@@ -58,7 +62,7 @@ export async function sendMessageToChat(params: {
     "im.message.create",
     "/open-apis/im/v1/messages",
     body,
-    { userId: params.userId, params: { receive_id_type: "chat_id" } },
+    { userId: params.userId, identityMode: params.identityMode, params: { receive_id_type: "chat_id" } },
   );
   return result.data;
 }
@@ -71,6 +75,7 @@ export async function listMessagesInChat(params: {
   updateTimeStart?: string;
   updateTimeEnd?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const qp: Record<string, string | number | boolean | undefined> = {
     container_id_type: "chat",
@@ -85,7 +90,7 @@ export async function listMessagesInChat(params: {
   const result = await feishuGet(
     "im.message.list",
     "/open-apis/im/v1/messages",
-    { userId: params.userId, params: qp },
+    { userId: params.userId, identityMode: params.identityMode, params: qp },
   );
   return result.data;
 }
@@ -95,6 +100,7 @@ export async function replyToMessage(params: {
   msgType: string;
   content: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body = {
     msg_type: params.msgType,
@@ -105,7 +111,7 @@ export async function replyToMessage(params: {
     "im.message.reply",
     `/open-apis/im/v1/messages/${params.messageId}/reply`,
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -113,11 +119,12 @@ export async function replyToMessage(params: {
 export async function deleteMessage(params: {
   messageId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuDelete(
     "im.message.delete",
     `/open-apis/im/v1/messages/${params.messageId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -127,6 +134,7 @@ export async function forwardMessage(params: {
   receiveId: string;
   receiveIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const receiveIdType = params.receiveIdType ?? "chat_id";
 
@@ -134,7 +142,7 @@ export async function forwardMessage(params: {
     "im.message.forward",
     `/open-apis/im/v1/messages/${params.messageId}/forward`,
     { receive_id: params.receiveId },
-    { userId: params.userId, params: { receive_id_type: receiveIdType } },
+    { userId: params.userId, identityMode: params.identityMode, params: { receive_id_type: receiveIdType } },
   );
   return result.data;
 }
@@ -142,11 +150,12 @@ export async function forwardMessage(params: {
 export async function getMessage(params: {
   messageId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "im.message.get",
     `/open-apis/im/v1/messages/${params.messageId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

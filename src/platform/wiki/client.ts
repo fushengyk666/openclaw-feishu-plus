@@ -5,12 +5,13 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function listWikiSpaces(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "wiki.space.list",
@@ -31,6 +32,7 @@ export async function getWikiNode(params: {
   token: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "wiki.space.getNode",
@@ -53,6 +55,7 @@ export async function listWikiSpaceNodes(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "wiki.spaceNode.list",
@@ -75,6 +78,7 @@ export async function createWikiSpace(params: {
   name: string;
   description?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "wiki.space.create",
@@ -83,7 +87,7 @@ export async function createWikiSpace(params: {
       name: params.name,
       description: params.description,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
 
   return result.data;

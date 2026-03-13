@@ -15,6 +15,8 @@ import {
   forwardMessage,
   getMessage,
 } from "../platform/im/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 // ─── 工具定义 ───
 
@@ -25,6 +27,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         page_size: {
           type: "number",
           description: "每页数量（默认 20）",
@@ -44,6 +47,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         chat_id: { type: "string", description: "群聊 ID" },
       },
       required: ["chat_id"],
@@ -55,6 +59,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         chat_id: { type: "string", description: "群聊 ID" },
         msg_type: {
           type: "string",
@@ -82,6 +87,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         chat_id: { type: "string", description: "群聊 ID" },
         page_size: {
           type: "number",
@@ -111,6 +117,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         message_id: {
           type: "string",
           description: "要回复的消息 ID",
@@ -133,6 +140,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         message_id: { type: "string", description: "消息 ID" },
       },
       required: ["message_id"],
@@ -144,6 +152,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         message_id: { type: "string", description: "消息 ID" },
         receive_id: {
           type: "string",
@@ -163,6 +172,7 @@ export const CHAT_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         message_id: { type: "string", description: "消息 ID" },
       },
       required: ["message_id"],
@@ -178,23 +188,24 @@ export class ChatTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_chat_list":
-        return this.listChats(params, userId);
+        return this.listChats(params, userId, identityMode);
       case "feishu_plus_chat_get":
-        return this.getChat(params, userId);
+        return this.getChat(params, userId, identityMode);
       case "feishu_plus_message_send":
-        return this.sendMessage(params, userId);
+        return this.sendMessage(params, userId, identityMode);
       case "feishu_plus_message_list":
-        return this.listMessages(params, userId);
+        return this.listMessages(params, userId, identityMode);
       case "feishu_plus_message_reply":
-        return this.replyMessage(params, userId);
+        return this.replyMessage(params, userId, identityMode);
       case "feishu_plus_message_delete":
-        return this.deleteMessage(params, userId);
+        return this.deleteMessage(params, userId, identityMode);
       case "feishu_plus_message_forward":
-        return this.forwardMessage(params, userId);
+        return this.forwardMessage(params, userId, identityMode);
       case "feishu_plus_message_get":
-        return this.getMessage(params, userId);
+        return this.getMessage(params, userId, identityMode);
       default:
         throw new Error(`Unknown chat tool: ${toolName}`);
     }
@@ -203,40 +214,47 @@ export class ChatTools {
   private async listChats(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return listChats({
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async getChat(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return getChat({
       chatId: String(params.chat_id),
       userId,
+      identityMode,
     });
   }
 
   private async sendMessage(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return sendMessageToChat({
       chatId: String(params.chat_id),
       msgType: String(params.msg_type),
       content: String(params.content),
       userId,
+      identityMode,
     });
   }
 
   private async listMessages(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return listMessagesInChat({
       chatId: String(params.chat_id),
@@ -250,34 +268,40 @@ export class ChatTools {
         ? String(params.update_time_end)
         : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async replyMessage(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return replyToMessage({
       messageId: String(params.message_id),
       msgType: String(params.msg_type),
       content: String(params.content),
       userId,
+      identityMode,
     });
   }
 
   private async deleteMessage(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return deleteMessage({
       messageId: String(params.message_id),
       userId,
+      identityMode,
     });
   }
 
   private async forwardMessage(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return forwardMessage({
       messageId: String(params.message_id),
@@ -286,16 +310,19 @@ export class ChatTools {
         ? String(params.receive_id_type)
         : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async getMessage(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return getMessage({
       messageId: String(params.message_id),
       userId,
+      identityMode,
     });
   }
 }

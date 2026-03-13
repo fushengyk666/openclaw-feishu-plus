@@ -10,6 +10,8 @@ import {
   listWikiSpaceNodes,
   createWikiSpace,
 } from "../platform/wiki/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const WIKI_TOOL_DEFS = [
   {
@@ -18,6 +20,7 @@ export const WIKI_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         page_size: { type: "number", description: "每页数量（默认 50）" },
         page_token: { type: "string", description: "分页 token" },
       },
@@ -29,6 +32,7 @@ export const WIKI_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "节点 token" },
         user_id_type: { type: "string", description: "用户 ID 类型（open_id/user_id/union_id），默认 open_id" },
       },
@@ -41,6 +45,7 @@ export const WIKI_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         space_id: { type: "string", description: "知识库空间 ID" },
         parent_node_token: { type: "string", description: "父节点 token（根节点为空）" },
         page_size: { type: "number", description: "每页数量（默认 50）" },
@@ -55,6 +60,7 @@ export const WIKI_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         name: { type: "string", description: "知识库名称" },
         description: { type: "string", description: "知识库描述" },
       },
@@ -65,51 +71,56 @@ export const WIKI_TOOL_DEFS = [
 
 export class WikiTools {
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_wiki_list_spaces":
-        return this.listSpaces(params, userId);
+        return this.listSpaces(params, userId, identityMode);
       case "feishu_plus_wiki_get_node":
-        return this.getNode(params, userId);
+        return this.getNode(params, userId, identityMode);
       case "feishu_plus_wiki_list_nodes":
-        return this.listNodes(params, userId);
+        return this.listNodes(params, userId, identityMode);
       case "feishu_plus_wiki_create_space":
-        return this.createSpace(params, userId);
+        return this.createSpace(params, userId, identityMode);
       default:
         throw new Error(`Unknown wiki tool: ${toolName}`);
     }
   }
 
-  private async listSpaces(params: Record<string, unknown>, userId?: string) {
+  private async listSpaces(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listWikiSpaces({
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async getNode(params: Record<string, unknown>, userId?: string) {
+  private async getNode(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await getWikiNode({
       token: String(params.token),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async listNodes(params: Record<string, unknown>, userId?: string) {
+  private async listNodes(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listWikiSpaceNodes({
       spaceId: String(params.space_id),
       parentNodeToken: params.parent_node_token ? String(params.parent_node_token) : undefined,
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async createSpace(params: Record<string, unknown>, userId?: string) {
+  private async createSpace(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await createWikiSpace({
       name: String(params.name),
       description: params.description ? String(params.description) : undefined,
       userId,
+      identityMode,
     });
   }
 }

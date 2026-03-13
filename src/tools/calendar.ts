@@ -18,6 +18,8 @@ import {
   deleteCalendarEvent,
   listFreeBusy,
 } from "../platform/calendar/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 // ─── 工具定义 ───
 
@@ -28,6 +30,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         page_size: { type: "number" },
         page_token: { type: "string" },
       },
@@ -39,6 +42,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         summary: { type: "string", description: "日历名称" },
         description: { type: "string", description: "日历描述" },
         permissions: {
@@ -56,6 +60,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: { type: "string", description: "日历 ID" },
       },
       required: ["calendar_id"],
@@ -67,6 +72,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: { type: "string", description: "日历 ID" },
         summary: { type: "string", description: "日历名称" },
         description: { type: "string", description: "日历描述" },
@@ -85,6 +91,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: {
           type: "string",
           description: "日历 ID（主日历通常为 'primary'）",
@@ -103,6 +110,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: { type: "string", description: "日历 ID" },
         summary: { type: "string", description: "事件标题" },
         description: { type: "string", description: "事件描述" },
@@ -139,6 +147,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: { type: "string", description: "日历 ID" },
         event_id: { type: "string", description: "事件 ID" },
         summary: { type: "string", description: "事件标题" },
@@ -159,6 +168,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         calendar_id: { type: "string", description: "日历 ID" },
         event_id: { type: "string", description: "事件 ID" },
         need_notification: {
@@ -175,6 +185,7 @@ export const CALENDAR_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         time_min: {
           type: "string",
           description: "查询开始时间（ISO 8601 或 Unix 秒）",
@@ -202,31 +213,32 @@ export class CalendarTools {
     params: Record<string, unknown>,
     userId?: string,
   ): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_calendar_list":
-        return this.list(params, userId);
+        return this.list(params, userId, identityMode);
       case "feishu_plus_calendar_create":
-        return this.createCalendar(params, userId);
+        return this.createCalendar(params, userId, identityMode);
       case "feishu_plus_calendar_delete":
-        return this.deleteCalendar(params, userId);
+        return this.deleteCalendar(params, userId, identityMode);
       case "feishu_plus_calendar_update":
-        return this.updateCalendar(params, userId);
+        return this.updateCalendar(params, userId, identityMode);
       case "feishu_plus_calendar_event_list":
-        return this.listEvents(params, userId);
+        return this.listEvents(params, userId, identityMode);
       case "feishu_plus_calendar_event_create":
-        return this.createEvent(params, userId);
+        return this.createEvent(params, userId, identityMode);
       case "feishu_plus_calendar_event_update":
-        return this.updateEvent(params, userId);
+        return this.updateEvent(params, userId, identityMode);
       case "feishu_plus_calendar_event_delete":
-        return this.deleteEvent(params, userId);
+        return this.deleteEvent(params, userId, identityMode);
       case "feishu_plus_calendar_freebusy":
-        return this.getFreeBusy(params, userId);
+        return this.getFreeBusy(params, userId, identityMode);
       default:
         throw new Error(`Unknown calendar tool: ${toolName}`);
     }
   }
 
-  private async list(params: Record<string, unknown>, userId?: string) {
+  private async list(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listCalendars({
       pageSize:
         typeof params.page_size === "number"
@@ -236,12 +248,14 @@ export class CalendarTools {
             : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async createCalendar(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await createCalendar({
       summary: String(params.summary),
@@ -249,22 +263,26 @@ export class CalendarTools {
       permissions: params.permissions ? String(params.permissions) : undefined,
       color: params.color !== undefined ? Number(params.color) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async deleteCalendar(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await deleteCalendar({
       calendarId: String(params.calendar_id),
       userId,
+      identityMode,
     });
   }
 
   private async updateCalendar(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await updateCalendar({
       calendarId: String(params.calendar_id),
@@ -273,12 +291,14 @@ export class CalendarTools {
       permissions: params.permissions ? String(params.permissions) : undefined,
       color: params.color !== undefined ? Number(params.color) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async listEvents(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await listCalendarEvents({
       calendarId: String(params.calendar_id),
@@ -292,12 +312,14 @@ export class CalendarTools {
             : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async createEvent(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     let reminders: unknown = undefined;
     if (params.reminders !== undefined) {
@@ -335,12 +357,14 @@ export class CalendarTools {
       attendees,
       needNotification: params.need_notification !== false,
       userId,
+      identityMode,
     });
   }
 
   private async updateEvent(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await updateCalendarEvent({
       calendarId: String(params.calendar_id),
@@ -351,24 +375,28 @@ export class CalendarTools {
       endTime: params.end_time ? String(params.end_time) : undefined,
       timezone: params.timezone ? String(params.timezone) : undefined,
       userId,
+      identityMode,
     });
   }
 
   private async deleteEvent(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     return await deleteCalendarEvent({
       calendarId: String(params.calendar_id),
       eventId: String(params.event_id),
       needNotification: params.need_notification !== false,
       userId,
+      identityMode,
     });
   }
 
   private async getFreeBusy(
     params: Record<string, unknown>,
     userId?: string,
+    identityMode?: IdentityMode,
   ) {
     // freebusy is user_only — will automatically trigger auth prompt if no user token
     let targetUserId: string | undefined = undefined;
@@ -384,6 +412,7 @@ export class CalendarTools {
       timeMax: String(params.time_max),
       targetUserId,
       userId,
+      identityMode,
     });
   }
 }

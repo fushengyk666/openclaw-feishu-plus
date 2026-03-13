@@ -9,6 +9,8 @@
 
 import { executeFeishuRequest } from "./request-executor.js";
 import { NeedUserAuthorizationError } from "./token-resolver.js";
+import type { IdentityMode } from "./token-resolver.js";
+export type { IdentityMode } from "./token-resolver.js";
 import { generateAuthPrompt } from "./auth-prompt.js";
 import type { PluginConfig } from "./config-schema.js";
 
@@ -23,6 +25,8 @@ export interface FeishuApiOptions {
   path: string;
   /** 当前用户 openId（可选） */
   userId?: string;
+  /** 身份模式覆盖（可选，默认 auto）*/
+  identityMode?: IdentityMode;
   /** 请求体（POST/PUT/PATCH） */
   body?: unknown;
   /** URL query 参数 */
@@ -110,6 +114,7 @@ export async function feishuRequest<T = unknown>(
     return await executeFeishuRequest<FeishuApiResult<T>>({
       operation: opts.operation,
       userId: opts.userId,
+      identityMode: opts.identityMode,
       invoke: async (ctx) => {
         const url = buildUrl(opts.path, opts.params);
         const headers: Record<string, string> = {
@@ -179,6 +184,7 @@ export async function feishuGet<T = unknown>(
   path: string,
   opts?: {
     userId?: string;
+    identityMode?: IdentityMode;
     params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<FeishuApiResult<T>> {
@@ -187,6 +193,7 @@ export async function feishuGet<T = unknown>(
     method: "GET",
     path,
     userId: opts?.userId,
+    identityMode: opts?.identityMode,
     params: opts?.params,
   });
 }
@@ -197,6 +204,7 @@ export async function feishuPost<T = unknown>(
   body?: unknown,
   opts?: {
     userId?: string;
+    identityMode?: IdentityMode;
     params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<FeishuApiResult<T>> {
@@ -206,6 +214,7 @@ export async function feishuPost<T = unknown>(
     path,
     body,
     userId: opts?.userId,
+    identityMode: opts?.identityMode,
     params: opts?.params,
   });
 }
@@ -216,6 +225,7 @@ export async function feishuPatch<T = unknown>(
   body?: unknown,
   opts?: {
     userId?: string;
+    identityMode?: IdentityMode;
     params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<FeishuApiResult<T>> {
@@ -225,6 +235,7 @@ export async function feishuPatch<T = unknown>(
     path,
     body,
     userId: opts?.userId,
+    identityMode: opts?.identityMode,
     params: opts?.params,
   });
 }
@@ -234,6 +245,7 @@ export async function feishuDelete<T = unknown>(
   path: string,
   opts?: {
     userId?: string;
+    identityMode?: IdentityMode;
     params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<FeishuApiResult<T>> {
@@ -242,6 +254,7 @@ export async function feishuDelete<T = unknown>(
     method: "DELETE",
     path,
     userId: opts?.userId,
+    identityMode: opts?.identityMode,
     params: opts?.params,
   });
 }
@@ -252,6 +265,7 @@ export async function feishuPut<T = unknown>(
   body?: unknown,
   opts?: {
     userId?: string;
+    identityMode?: IdentityMode;
   },
 ): Promise<FeishuApiResult<T>> {
   return feishuRequest<T>({
@@ -260,6 +274,7 @@ export async function feishuPut<T = unknown>(
     path,
     body,
     userId: opts?.userId,
+    identityMode: opts?.identityMode,
   });
 }
 

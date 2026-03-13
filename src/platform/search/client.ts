@@ -8,7 +8,7 @@
  * to the user's visible range for permission isolation).
  */
 
-import { feishuPost } from "../../identity/feishu-api.js";
+import { feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function searchMessage(params: {
   query: string;
@@ -21,6 +21,7 @@ export async function searchMessage(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {
     query: params.query,
@@ -38,7 +39,7 @@ export async function searchMessage(params: {
     "search.message.search",
     "/open-apis/search/v2/message",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -51,6 +52,7 @@ export async function searchDoc(params: {
   count?: number;
   offset?: number;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = {
     search_key: params.searchKey,
@@ -65,7 +67,7 @@ export async function searchDoc(params: {
     "search.doc.search",
     "/open-apis/suite/docs-api/search/object",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -75,6 +77,7 @@ export async function searchApp(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "search.app.search",
@@ -84,7 +87,7 @@ export async function searchApp(params: {
       page_size: typeof params.pageSize === "number" ? params.pageSize : 20,
       page_token: params.pageToken,
     },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

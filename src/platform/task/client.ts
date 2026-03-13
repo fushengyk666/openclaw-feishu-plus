@@ -5,12 +5,13 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost, feishuPatch } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, feishuPatch, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function getTask(params: {
   taskId: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "task.task.get",
@@ -31,6 +32,7 @@ export async function listTasks(params: {
   completed?: boolean;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "task.task.list",
@@ -56,6 +58,7 @@ export async function createTask(params: {
   followerIds?: string[];
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: any = { summary: params.summary };
   if (params.description) body.description = params.description;
@@ -89,6 +92,7 @@ export async function updateTask(params: {
   assignee?: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const task: any = {};
   const updateFields: string[] = [];
@@ -122,6 +126,7 @@ export async function completeTask(params: {
   taskId: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPatch(
     "task.task.complete",

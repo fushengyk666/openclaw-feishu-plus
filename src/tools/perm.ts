@@ -11,6 +11,8 @@ import {
   deletePermission,
   transferOwner,
 } from "../platform/perm/index.js";
+import { IDENTITY_MODE_SCHEMA, parseIdentityMode } from "./identity-mode.js";
+import type { IdentityMode } from "../identity/feishu-api.js";
 
 export const PERM_TOOL_DEFS = [
   {
@@ -19,6 +21,7 @@ export const PERM_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "文件/文件夹 token" },
         type: { type: "string", description: "资源类型（file/folder/wiki/wiki_node）" },
         page_size: { type: "number", description: "每页数量（默认 50）" },
@@ -33,6 +36,7 @@ export const PERM_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "文件/文件夹 token" },
         type: { type: "string", description: "资源类型（file/folder）" },
         member_type: { type: "string", description: "成员类型（user/group/org）" },
@@ -50,6 +54,7 @@ export const PERM_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "文件/文件夹 token" },
         type: { type: "string", description: "资源类型（file/folder）" },
         permittee_id: { type: "string", description: "被授权者 ID" },
@@ -66,6 +71,7 @@ export const PERM_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "文件/文件夹 token" },
         type: { type: "string", description: "资源类型（file/folder）" },
         permittee_id: { type: "string", description: "被授权者 ID" },
@@ -81,6 +87,7 @@ export const PERM_TOOL_DEFS = [
     parameters: {
       type: "object",
       properties: {
+        identity_mode: IDENTITY_MODE_SCHEMA,
         token: { type: "string", description: "文件/文件夹 token" },
         type: { type: "string", description: "资源类型（file/folder）" },
         to_user_id: { type: "string", description: "新所有者用户 ID" },
@@ -93,33 +100,35 @@ export const PERM_TOOL_DEFS = [
 
 export class PermTools {
   async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
+    const identityMode = parseIdentityMode(params.identity_mode);
     switch (toolName) {
       case "feishu_plus_drive_list_permissions":
-        return this.listPermissions(params, userId);
+        return this.listPermissions(params, userId, identityMode);
       case "feishu_plus_drive_create_permission":
-        return this.createPermission(params, userId);
+        return this.createPermission(params, userId, identityMode);
       case "feishu_plus_drive_update_permission":
-        return this.updatePermission(params, userId);
+        return this.updatePermission(params, userId, identityMode);
       case "feishu_plus_drive_delete_permission":
-        return this.deletePermission(params, userId);
+        return this.deletePermission(params, userId, identityMode);
       case "feishu_plus_drive_transfer_owner":
-        return this.transferOwner(params, userId);
+        return this.transferOwner(params, userId, identityMode);
       default:
         throw new Error(`Unknown perm tool: ${toolName}`);
     }
   }
 
-  private async listPermissions(params: Record<string, unknown>, userId?: string) {
+  private async listPermissions(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await listPermissions({
       token: String(params.token),
       type: String(params.type),
       pageSize: params.page_size ? Number(params.page_size) : undefined,
       pageToken: params.page_token ? String(params.page_token) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async createPermission(params: Record<string, unknown>, userId?: string) {
+  private async createPermission(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await createPermission({
       token: String(params.token),
       type: String(params.type),
@@ -129,10 +138,11 @@ export class PermTools {
       notify: params.notify !== false,
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async updatePermission(params: Record<string, unknown>, userId?: string) {
+  private async updatePermission(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await updatePermission({
       token: String(params.token),
       type: String(params.type),
@@ -141,10 +151,11 @@ export class PermTools {
       perm: String(params.perm),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async deletePermission(params: Record<string, unknown>, userId?: string) {
+  private async deletePermission(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await deletePermission({
       token: String(params.token),
       type: String(params.type),
@@ -152,16 +163,18 @@ export class PermTools {
       permitteeType: String(params.permittee_type),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 
-  private async transferOwner(params: Record<string, unknown>, userId?: string) {
+  private async transferOwner(params: Record<string, unknown>, userId?: string, identityMode?: IdentityMode) {
     return await transferOwner({
       token: String(params.token),
       type: String(params.type),
       toUserId: String(params.to_user_id),
       userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
       userId,
+      identityMode,
     });
   }
 }

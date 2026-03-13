@@ -111,6 +111,7 @@ const TOOL_DOMAIN_MAP: Record<string, string[]> = {
   "approval.ts": ["approval."],
   "search.ts": ["search."],
   "oauth-tool.ts": [], // OAuth tool doesn't call feishu APIs directly
+  "identity-mode.ts": [], // shared helper, not a tool entry
 };
 
 async function main() {
@@ -195,7 +196,7 @@ async function main() {
   console.log("\n── Tool Completeness ──");
 
   for (const file of toolFiles) {
-    if (file === "oauth-tool.ts") continue; // OAuth is special
+    if (file === "oauth-tool.ts" || file === "identity-mode.ts") continue; // helpers/special tools
     check(`${file} has at least one feishu API operation`, () => {
       const ops = extractOperationsFromToolFile(join(toolsDir, file));
       assert(ops.length > 0, `no feishu API operations found in ${file} (including platform imports)`);

@@ -121,20 +121,20 @@ async function main() {
     assert(mockSdkWrapper.log.length === 0, "no SDK calls when streaming disabled");
   });
 
-  // ── 3. Streaming enabled: card creation ──
-  await check("streaming enabled: creates card on first non-empty chunk", async () => {
-    const { config, mockSdkWrapper, errors } = createSessionConfig();
+  // ── 3. Streaming enabled: long/streaming content triggers card creation ──
+  await check("streaming enabled: partial streaming creates card after threshold", async () => {
+    const { config, mockSdkWrapper } = createSessionConfig();
     const session = new StreamingSession(config);
 
-    // The createCard will succeed but sendMessageFeishu will fail (no real API)
-    // That's fine — we check SDK interactions
     try {
-      await session.deliver({ text: "Hello world" }, {});
+      await session.onPartialText("short");
+      assert(mockSdkWrapper.log.length === 0, "first tiny partial should not create card immediately");
+      await session.onPartialText("this is a substantially longer partial update that should trigger streaming card creation");
     } catch {
-      // sendMessageFeishu may fail
+      // sendMessageFeishu may fail in test env after card create
     }
 
-    assert(mockSdkWrapper.log[0] === "createCard", "should call createCard first");
+    assert(mockSdkWrapper.log[0] === "createCard", "should create card once streaming threshold is crossed");
   });
 
   // ── 4. Card creation failure → fallback ──

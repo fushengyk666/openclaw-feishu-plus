@@ -5,16 +5,17 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost, feishuPatch, feishuDelete } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, feishuPatch, feishuDelete, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function getBitableApp(params: {
   appToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "bitable.app.get",
     `/open-apis/bitable/v1/apps/${params.appToken}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -22,11 +23,12 @@ export async function getBitableApp(params: {
 export async function listBitableTables(params: {
   appToken: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "bitable.appTable.list",
     `/open-apis/bitable/v1/apps/${params.appToken}/tables`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -41,6 +43,7 @@ export async function listBitableRecords(params: {
   sort?: string;
   filter?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const queryParams: Record<string, string | number | boolean | undefined> = {
     page_size: typeof params.pageSize === "number" ? params.pageSize : 20,
@@ -65,6 +68,7 @@ export async function createBitableRecord(params: {
   fields: Record<string, unknown>;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "bitable.appTableRecord.create",
@@ -86,12 +90,13 @@ export async function updateBitableRecord(params: {
   recordId: string;
   fields: Record<string, unknown>;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPatch(
     "bitable.appTableRecord.update",
     `/open-apis/bitable/v1/apps/${params.appToken}/tables/${params.tableId}/records/${params.recordId}`,
     { fields: params.fields },
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }
@@ -101,11 +106,12 @@ export async function deleteBitableRecord(params: {
   tableId: string;
   recordId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuDelete(
     "bitable.appTableRecord.delete",
     `/open-apis/bitable/v1/apps/${params.appToken}/tables/${params.tableId}/records/${params.recordId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
   return result.data;
 }

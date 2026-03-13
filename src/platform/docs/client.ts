@@ -5,12 +5,13 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function createDocxDocument(params: {
   title: string;
   folderToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const body: Record<string, unknown> = { title: params.title };
   if (params.folderToken) body.folder_token = params.folderToken;
@@ -19,7 +20,7 @@ export async function createDocxDocument(params: {
     "docx.document.create",
     "/open-apis/docx/v1/documents",
     body,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
 
   return result.data;
@@ -28,11 +29,12 @@ export async function createDocxDocument(params: {
 export async function getDocxDocument(params: {
   documentId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "docx.document.get",
     `/open-apis/docx/v1/documents/${params.documentId}`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
 
   return result.data;
@@ -43,6 +45,7 @@ export async function listDocxBlocks(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const queryParams: Record<string, string | number | boolean | undefined> = {};
   if (typeof params.pageSize === "number") queryParams.page_size = params.pageSize;
@@ -60,11 +63,12 @@ export async function listDocxBlocks(params: {
 export async function getDocxRawContent(params: {
   documentId: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "docx.document.rawContent",
     `/open-apis/docx/v1/documents/${params.documentId}/raw_content`,
-    { userId: params.userId },
+    { userId: params.userId, identityMode: params.identityMode },
   );
 
   return result.data;

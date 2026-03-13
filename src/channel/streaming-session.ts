@@ -1,13 +1,13 @@
 /**
  * streaming-session.ts — Encapsulates all per-message streaming card state
  *
- * Aligned with the official OpenClaw feishu plugin's FeishuStreamingSession:
- * - Uses raw HTTP via StreamingCardSdk (not SDK wrapper methods)
+ * Polished against the official OpenClaw feishu plugin behavior:
+ * - partial replies drive the first-screen experience
+ * - short/final-only replies avoid forced streaming cards
+ * - delayed card creation reduces awkward flash for tiny replies
  * - mergeStreamingText for proper text dedup/overlap handling
- * - Throttled updates (max 10/sec)
+ * - throttled updates (max 10/sec)
  * - uuid-based idempotent CardKit calls
- * - Non-empty initial card content
- * - Proper close sequence: final content update + streaming_mode=false
  */
 
 import {
@@ -21,21 +21,13 @@ import type { StreamingCardSdk } from "./streaming-card-executor.js";
 import { sendMessageFeishu } from "./send.js";
 
 export interface StreamingSessionConfig {
-  /** Whether streaming cards are enabled for this message */
   useStreaming: boolean;
-  /** Whether this is a direct (p2p) message */
   isDirect: boolean;
-  /** Sender open_id */
   senderOpenId: string;
-  /** Chat ID (empty for DM) */
   chatId: string;
-  /** Account ID for send operations */
   accountId: string;
-  /** Full channel config for send */
   cfg: any;
-  /** CardKit SDK instance */
   streamingSdk: StreamingCardSdk;
-  /** Logger functions */
   log: {
     info: (...args: any[]) => void;
     error: (...args: any[]) => void;
@@ -48,34 +40,32 @@ function truncateSummary(text: string, max = 50): string {
   return clean.length <= max ? clean : clean.slice(0, max - 3) + "...";
 }
 
-/**
- * StreamingSession manages the complete lifecycle of a single streaming card
- * exchange for one inbound message.
- *
- * Lifecycle:
- * 1. construct → initial state
- * 2. deliver() called per agent output block
- * 3. internally decides: create card → push content → update → finalize
- * 4. Falls back to plain text if streaming is off or card creation fails
- */
+function shouldForceStreamingCard(text: string): boolean {
+  const clean = (text ?? "").trim();
+  if (!clean) return false;
+  if (clean.length >= 120) return true;
+  if (clean.includes("\n")) return true;
+  if (/```[\s\S]*?```/.test(clean)) return true;
+  if (/\|.+\|[\r\n]+\|[-:| ]+\|/.test(clean)) return true;
+  return false;
+}
+
 export class StreamingSession {
-  // ── Internal state ──
   private cardKitCardId: string | null = null;
   private cardKitSequence = 0;
   private currentText = "";
   private cardMessageId: string | null = null;
   private streamingCardCreated = false;
   private closed = false;
+  private plainTextDelivered = false;
+  private partialCount = 0;
 
-  // ── Throttling ──
   private lastUpdateTime = 0;
   private pendingText: string | null = null;
   private updateThrottleMs = 100;
   private queue: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: StreamingSessionConfig) {}
-
-  // ── Public accessors for testing ──
 
   get isCardCreated(): boolean {
     return this.streamingCardCreated;
@@ -89,17 +79,30 @@ export class StreamingSession {
     return this.currentText;
   }
 
-  // Legacy compat alias
   get currentText_(): string {
     return this.currentText;
   }
 
-  // ── Main dispatch method ──
+  async onPartialText(text: string): Promise<void> {
+    if (!this.config.useStreaming || this.closed) return;
+    if (!text?.trim()) return;
 
-  /**
-   * Called by the buffered block dispatcher for each output chunk.
-   * Handles the full decision tree: create → update → finalize | fallback.
-   */
+    this.partialCount += 1;
+    const merged = mergeStreamingText(this.currentText, text);
+    const changed = merged !== this.currentText;
+    this.currentText = merged;
+    if (!changed) return;
+
+    if (!this.streamingCardCreated) {
+      const shouldCreate = this.partialCount >= 2 || shouldForceStreamingCard(this.currentText);
+      if (!shouldCreate) return;
+      const created = await this.createStreamingCard();
+      if (!created) return;
+    }
+
+    await this.updateStreamingContent();
+  }
+
   async deliver(payload: any, info: any): Promise<void> {
     const text = payload?.text ?? payload?.body ?? payload?.content ?? "";
     if (!text?.trim()) return;
@@ -111,27 +114,30 @@ export class StreamingSession {
       return;
     }
 
-    // Create card on first non-empty chunk
-    if (!this.streamingCardCreated) {
-      const created = await this.createStreamingCard();
-      if (!created) {
-        // Card creation failed → fall back to plain text
-        await this.sendPlainText(text);
-        return;
-      }
-    }
-
-    // Card exists — merge text using the official mergeStreamingText approach
     this.currentText = mergeStreamingText(this.currentText, text);
 
-    if (isFinal) {
-      await this.finalizeCard();
-    } else {
-      await this.updateStreamingContent();
+    if (!isFinal) {
+      // Non-final blocks may still be useful for slow models lacking onPartialReply.
+      if (!this.streamingCardCreated && shouldForceStreamingCard(this.currentText)) {
+        const created = await this.createStreamingCard();
+        if (!created) return;
+      }
+      if (this.streamingCardCreated) {
+        await this.updateStreamingContent();
+      }
+      return;
     }
-  }
 
-  // ── Internal methods ──
+    // Final-only / short response: do not force card.
+    if (!this.streamingCardCreated) {
+      await this.sendPlainText(this.currentText);
+      this.plainTextDelivered = true;
+      this.closed = true;
+      return;
+    }
+
+    await this.finalizeCard();
+  }
 
   private async createStreamingCard(): Promise<boolean> {
     const { streamingSdk, cfg, accountId, log } = this.config;
@@ -183,7 +189,6 @@ export class StreamingSession {
     const textToUpdate = this.currentText;
     if (!textToUpdate) return;
 
-    // Throttle: skip if updated recently, but remember pending text
     const now = Date.now();
     if (now - this.lastUpdateTime < this.updateThrottleMs) {
       this.pendingText = textToUpdate;
@@ -216,18 +221,12 @@ export class StreamingSession {
     if (!this.cardKitCardId || this.closed) return;
     this.closed = true;
 
-    // Wait for any pending updates
     await this.queue;
 
-    // Merge any pending text
-    const finalText = mergeStreamingText(
-      this.currentText,
-      this.pendingText ?? undefined,
-    );
+    const finalText = mergeStreamingText(this.currentText, this.pendingText ?? undefined);
     this.currentText = finalText;
 
     try {
-      // Final content update (if text differs from what's been pushed)
       this.cardKitSequence++;
       await this.config.streamingSdk.updateElementContent(
         this.cardKitCardId,
@@ -239,7 +238,6 @@ export class StreamingSession {
         },
       );
 
-      // Close streaming mode
       this.cardKitSequence++;
       await this.config.streamingSdk.updateSettings(
         this.cardKitCardId,
@@ -256,6 +254,19 @@ export class StreamingSession {
       );
     } catch (err) {
       this.config.log.error(`finalize card failed: ${String(err)}`);
+    }
+  }
+
+  async closeIfNeeded(): Promise<void> {
+    if (this.closed || this.plainTextDelivered) return;
+    if (this.streamingCardCreated) {
+      await this.finalizeCard();
+      return;
+    }
+    if (this.currentText.trim()) {
+      await this.sendPlainText(this.currentText);
+      this.plainTextDelivered = true;
+      this.closed = true;
     }
   }
 

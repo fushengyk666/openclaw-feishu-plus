@@ -5,7 +5,7 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost, feishuDelete } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, feishuDelete, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function listPermissions(params: {
   token: string;
@@ -13,6 +13,7 @@ export async function listPermissions(params: {
   pageSize?: number;
   pageToken?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuGet(
     "drive.permission.list",
@@ -38,6 +39,7 @@ export async function createPermission(params: {
   notify?: boolean;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.permission.create",
@@ -67,6 +69,7 @@ export async function updatePermission(params: {
   perm: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.permission.update",
@@ -94,6 +97,7 @@ export async function deletePermission(params: {
   permitteeType: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuDelete(
     "drive.permission.delete",
@@ -116,6 +120,7 @@ export async function transferOwner(params: {
   toUserId: string;
   userIdType?: string;
   userId?: string;
+  identityMode?: IdentityMode;
 }) {
   const result = await feishuPost(
     "drive.permission.transferOwner",
