@@ -11,7 +11,7 @@ openclaw-feishu-plus
 - 持续补齐飞书开放平台核心能力
 - 提供高频 workflow skills 增强体验
 
-## Current Status (2026-03-13, Round 9 — Card Action Webhook + Tests Green)
+## Current Status (2026-03-13, Round 10 — Begin Platform Layer: Docs Domain)
 
 ### ✅ 已完成
 
@@ -91,7 +91,7 @@ openclaw-feishu-plus
 2. **流式卡片真实环境验证**：DM + 群聊需真实飞书环境验证
 3. **card action / callback（最小版）**：✅ 已接入 webhook listener（默认 `${webhookPath}/card-action`），当前仅返回确认卡片；后续可演进为路由到 agent + 更新卡片
 4. **event subscription**：仍仅 `im.message.receive_v1`，Phase 3 剩余
-5. **platform 层拆分**：当前 tools 层可用但未按 TECHNICAL_PLAN 演进到独立 platform 层
+5. **platform 层拆分**：🚧 进行中（本轮已新增 `src/platform/docs/*` 并将 `doc.ts` 迁移到 platform client）
 6. **raw SDK 发送例外项收口**：普通消息发送链路已切到 `send.ts → identity/feishu-api`，但 CardKit、media multipart 上传、typing indicator、directory/probe 等 bot-context/SDK 特例仍保留并已文档化
 
 ### 🔬 Live Contract Verification Results (Round 7, 2026-03-13)
@@ -161,6 +161,12 @@ verify-plugin-send-paths.ts        → 4/4 ✅
 - webhook 模式下默认注册路径：`${webhookPath}/card-action`（可用 `cardActionPath` 覆盖）
 - 当前实现为 **最小确认回调**（返回一张 ack 卡片，包含 action.tag/value 等调试信息）
 - 测试：全量 `npm run verify` 仍全绿
+
+### Platform Layer Start (Round 10)
+- 新增 `src/platform/docs/client.ts`：docx 域 platform client（所有 API 仍经 identity/feishu-api）
+- `src/tools/doc.ts` 迁移为调用 platform client（保持 tool schema 不变）
+- 更新测试：`verify-api-policy-coverage.ts` 改为递归扫描 platform imports；`verify-send-path-deep-audit.ts` 放宽为 tools 可经 platform 间接接入 feishu-api
+- `npm run verify` 全绿
 
 ### All Tests (21 files, all passing)
 

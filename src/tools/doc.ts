@@ -7,7 +7,12 @@
  * - user_only 接口 → 生成授权提示
  */
 
-import { feishuGet, feishuPost } from "../identity/feishu-api.js";
+import {
+  createDocxDocument,
+  getDocxDocument,
+  listDocxBlocks,
+  getDocxRawContent,
+} from "../platform/docs/index.js";
 
 // ─── 工具定义 ───
 
@@ -91,52 +96,31 @@ export class DocTools {
       body.folder_token = String(params.folder_token);
     }
 
-    const result = await feishuPost(
-      "docx.document.create",
-      "/open-apis/docx/v1/documents",
-      body,
-      { userId },
-    );
-
-    return result.data;
+    return await createDocxDocument({
+      title: String(body.title ?? ""),
+      folderToken: typeof body.folder_token === "string" ? body.folder_token : undefined,
+      userId,
+    });
   }
 
   private async get(params: Record<string, unknown>, userId?: string) {
     const docId = String(params.document_id);
-    const result = await feishuGet(
-      "docx.document.get",
-      `/open-apis/docx/v1/documents/${docId}`,
-      { userId },
-    );
-
-    return result.data;
+    return await getDocxDocument({ documentId: docId, userId });
   }
 
   private async listBlocks(params: Record<string, unknown>, userId?: string) {
     const docId = String(params.document_id);
-    const queryParams: Record<string, string | number | boolean | undefined> = {};
-
-    if (params.page_size) queryParams.page_size = Number(params.page_size);
-    if (params.page_token) queryParams.page_token = String(params.page_token);
-
-    const result = await feishuGet(
-      "docx.documentBlock.list",
-      `/open-apis/docx/v1/documents/${docId}/blocks`,
-      { userId, params: queryParams },
-    );
-
-    return result.data;
+    return await listDocxBlocks({
+      documentId: docId,
+      pageSize: typeof params.page_size === "number" ? params.page_size : params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async rawContent(params: Record<string, unknown>, userId?: string) {
     const docId = String(params.document_id);
-    const result = await feishuGet(
-      "docx.document.rawContent",
-      `/open-apis/docx/v1/documents/${docId}/raw_content`,
-      { userId },
-    );
-
-    return result.data;
+    return await getDocxRawContent({ documentId: docId, userId });
   }
 }
 

@@ -6,10 +6,10 @@
  * must be registered and semantically match the tool's domain.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join, dirname, resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { API_POLICY, getApiPolicy } from "../src/identity/api-policy.js";
+import { API_POLICY } from "../src/identity/api-policy.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const toolsDir = join(__dirname, "..", "src", "tools");
@@ -33,15 +33,66 @@ function check(name: string, fn: () => void) {
   }
 }
 
-// Extract operation strings from tool source code
+// Extract operation strings from source code
 function extractOperations(src: string): string[] {
   const ops: string[] = [];
+
   // Match feishuGet("op", ...) / feishuPost("op", ...) etc.
   const regex = /feishu(?:Get|Post|Patch|Delete|Put)\(\s*\n?\s*"([^"]+)"/g;
   let match;
   while ((match = regex.exec(src)) !== null) {
     ops.push(match[1]);
   }
+
+  return ops;
+}
+
+// Recursively scan a tool file plus its local imports (tools/ or platform/ only)
+function extractOperationsFromToolFile(entryFileAbs: string): string[] {
+  const visited = new Set<string>();
+  const ops: string[] = [];
+
+  const scan = (fileAbs: string) => {
+    const normalized = resolve(fileAbs);
+    if (visited.has(normalized)) return;
+    visited.add(normalized);
+    if (!existsSync(normalized)) return;
+
+    const src = readFileSync(normalized, "utf8");
+    ops.push(...extractOperations(src));
+
+    // naive ESM import scanner: import ... from "../platform/...";
+    // We only follow relative imports into src/tools or src/platform.
+    const importRegex = /from\s+"(\.[^"]+)"/g;
+    let m;
+    while ((m = importRegex.exec(src)) !== null) {
+      const rel = m[1];
+      const resolvedPath = resolve(dirname(normalized), rel);
+
+      const tsCompat = resolvedPath.endsWith(".js")
+        ? resolvedPath.slice(0, -3) + ".ts"
+        : undefined;
+      const candidates = [
+        resolvedPath,
+        tsCompat,
+        resolvedPath + ".ts",
+        resolvedPath + ".js",
+        join(resolvedPath, "index.ts"),
+        join(resolvedPath, "index.js"),
+      ].filter(Boolean) as string[];
+
+      const next = candidates.find((p) => existsSync(p) && [".ts", ".js"].includes(extname(p)));
+      if (!next) continue;
+
+      // Restrict recursion to our code areas.
+      const isAllowed = next.includes("/src/tools/") || next.includes("/src/platform/");
+      if (!isAllowed) continue;
+
+      scan(next);
+    }
+  };
+
+  scan(entryFileAbs);
   return ops;
 }
 
@@ -74,8 +125,8 @@ async function main() {
 
   const allOpsUsed: Array<{ file: string; op: string }> = [];
   for (const file of toolFiles) {
-    const src = readFileSync(join(toolsDir, file), "utf8");
-    const ops = extractOperations(src);
+    const entryAbs = join(toolsDir, file);
+    const ops = extractOperationsFromToolFile(entryAbs);
     for (const op of ops) {
       allOpsUsed.push({ file, op });
     }
@@ -98,8 +149,7 @@ async function main() {
     const expectedPrefixes = TOOL_DOMAIN_MAP[file];
     if (!expectedPrefixes || expectedPrefixes.length === 0) continue;
 
-    const src = readFileSync(join(toolsDir, file), "utf8");
-    const ops = extractOperations(src);
+    const ops = extractOperationsFromToolFile(join(toolsDir, file));
     if (ops.length === 0) continue;
 
     check(`${file}: all operations match domain prefix (${expectedPrefixes.join("|")})`, () => {
@@ -147,9 +197,8 @@ async function main() {
   for (const file of toolFiles) {
     if (file === "oauth-tool.ts") continue; // OAuth is special
     check(`${file} has at least one feishu API operation`, () => {
-      const src = readFileSync(join(toolsDir, file), "utf8");
-      const ops = extractOperations(src);
-      assert(ops.length > 0, `no feishu API operations found in ${file}`);
+      const ops = extractOperationsFromToolFile(join(toolsDir, file));
+      assert(ops.length > 0, `no feishu API operations found in ${file} (including platform imports)`);
     });
   }
 

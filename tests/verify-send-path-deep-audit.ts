@@ -95,15 +95,21 @@ async function main() {
   const toolFiles = listFiles("tools");
   const toolsWithoutOauth = toolFiles.filter(f => f !== "oauth-tool.ts");
 
-  check(`all ${toolsWithoutOauth.length} tool files import from identity/feishu-api`, () => {
+  check(`all ${toolsWithoutOauth.length} tool files route through identity/feishu-api (directly or via platform)`, () => {
     const violations: string[] = [];
     for (const file of toolsWithoutOauth) {
       const src = readSrc(`tools/${file}`);
-      if (!src.includes('from "../identity/feishu-api.js"')) {
+      const direct = src.includes('from "../identity/feishu-api.js"');
+      const viaPlatform = src.includes('from "../platform/') || src.includes('from "../platform/');
+
+      if (!direct && !viaPlatform) {
         violations.push(file);
       }
     }
-    assert(violations.length === 0, `missing feishu-api import: ${violations.join(", ")}`);
+    assert(
+      violations.length === 0,
+      `tools must import identity/feishu-api.js (direct) or platform/* (which uses feishu-api): ${violations.join(", ")}`,
+    );
   });
 
   check("no tool file imports @larksuiteoapi/node-sdk", () => {
