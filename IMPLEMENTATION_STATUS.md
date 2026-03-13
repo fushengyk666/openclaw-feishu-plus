@@ -115,7 +115,7 @@ openclaw-feishu-plus
 ### ⏳ 遗留未完成项
 
 1. **流式卡片真实环境验证**：DM + 群聊需真实飞书环境验证（代码层修复已完成，等待实测）
-2. **card action 路由到 agent**：当前仅返回确认卡片；后续可演进为路由到 agent + 更新卡片
+2. **card action 路由到 agent**：✅ 已实现最小链路（webhook 收到 action → best-effort 路由到 agent → 将最终文本回发给用户）；后续可演进为“更新原卡片/异步任务卡片”
 3. **event subscription 扩展**：仍仅 `im.message.receive_v1`，Phase 3 剩余
 4. **raw SDK 发送例外项收口**：CardKit 已改 Raw HTTP，但 media multipart 上传、typing indicator、directory/probe 等 bot-context/SDK 特例仍保留并已文档化
 
@@ -211,7 +211,7 @@ verify-tool-toggle-registration.ts    → 3/3 ✅
 2. **user-token 实际发送验证**
 
 ### 中优先级
-3. card action → agent 路由实现
+3. card action → agent 路由实现（✅ 最小链路已完成；待真实环境验证）
 4. 更完整 event subscription 体系
 5. 更多 skills（sheets 工作流、chatops 工作流）
 

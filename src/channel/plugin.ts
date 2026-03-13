@@ -824,15 +824,25 @@ async function startWebhookListener(params: {
   });
 
   // Card action handler (interactive card callback)
-  const { createCardActionDispatcher } = await import("./card-action.js");
+  const { createCardActionDispatcher, buildCardActionAckCard, routeCardActionToAgent } = await import("./card-action.js");
   const cardDispatcher = createCardActionDispatcher({
     encryptKey: feishuCfg.encryptKey,
     verificationToken: feishuCfg.verificationToken,
     loggerLevel: lark.LoggerLevel.warn,
     onAction: async (evt) => {
-      // For now: minimal ack only.
-      // Future: route to OpenClaw runtime and update card with results.
-      const { buildCardActionAckCard } = await import("./card-action.js");
+      // Phase 3 minimal: route card action into agent runtime (best-effort) and
+      // still return an acknowledgement card quickly.
+      try {
+        await routeCardActionToAgent({
+          cfg,
+          accountId,
+          event: evt,
+          channelRuntime,
+          log,
+        });
+      } catch {
+        // Best-effort only
+      }
       return buildCardActionAckCard(evt);
     },
   });
