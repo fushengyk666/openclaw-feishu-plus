@@ -173,6 +173,11 @@ verify-plugin-send-paths.ts        → 4/4 ✅
 - `src/tools/calendar.ts` 迁移为调用 platform calendar client（保持 tool schema 不变；仍由 identity/feishu-api 执行）
 - `npm run verify` / `npm run build` / `npx tsc --noEmit` 全绿
 
+### Platform Layer Expansion (Round 12)
+- 新增 `src/platform/im/client.ts` + `src/platform/im/index.ts`
+- `src/tools/chat.ts` 迁移为调用 platform IM client（保持 tool schema 不变；仍经 identity/feishu-api 执行）
+- `npm run verify` 全绿
+
 ### All Tests (21 files, all passing)
 
 ```

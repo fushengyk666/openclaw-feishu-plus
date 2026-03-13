@@ -6,10 +6,15 @@
  */
 
 import {
-  feishuGet,
-  feishuPost,
-  feishuDelete,
-} from "../identity/feishu-api.js";
+  listChats,
+  getChat,
+  sendMessageToChat,
+  listMessagesInChat,
+  replyToMessage,
+  deleteMessage,
+  forwardMessage,
+  getMessage,
+} from "../platform/im/index.js";
 
 // ─── 工具定义 ───
 
@@ -199,142 +204,99 @@ export class ChatTools {
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.page_size) qp.page_size = Number(params.page_size);
-    if (params.page_token) qp.page_token = String(params.page_token);
-    if (params.user_id_type)
-      qp.user_id_type = String(params.user_id_type);
-
-    const result = await feishuGet(
-      "im.chat.list",
-      "/open-apis/im/v1/chats",
-      { userId, params: qp },
-    );
-    return result.data;
+    return listChats({
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async getChat(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const chatId = String(params.chat_id);
-    const result = await feishuGet(
-      "im.chat.get",
-      `/open-apis/im/v1/chats/${chatId}`,
-      { userId },
-    );
-    return result.data;
+    return getChat({
+      chatId: String(params.chat_id),
+      userId,
+    });
   }
 
   private async sendMessage(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const chatId = String(params.chat_id);
-    const body: Record<string, unknown> = {
-      receive_id: chatId,
-      msg_type: String(params.msg_type),
+    return sendMessageToChat({
+      chatId: String(params.chat_id),
+      msgType: String(params.msg_type),
       content: String(params.content),
-    };
-
-    const result = await feishuPost(
-      "im.message.create",
-      "/open-apis/im/v1/messages",
-      body,
-      { userId, params: { receive_id_type: "chat_id" } },
-    );
-    return result.data;
+      userId,
+    });
   }
 
   private async listMessages(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const qp: Record<string, string | number | boolean | undefined> = {
-      container_id_type: "chat",
-      container_id: String(params.chat_id),
-    };
-    if (params.page_size) qp.page_size = Number(params.page_size);
-    if (params.page_token) qp.page_token = String(params.page_token);
-    if (params.sort_type) qp.sort_type = String(params.sort_type);
-    if (params.update_time_start)
-      qp.start_time = String(params.update_time_start);
-    if (params.update_time_end)
-      qp.end_time = String(params.update_time_end);
-
-    const result = await feishuGet(
-      "im.message.list",
-      "/open-apis/im/v1/messages",
-      { userId, params: qp },
-    );
-    return result.data;
+    return listMessagesInChat({
+      chatId: String(params.chat_id),
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      sortType: params.sort_type ? String(params.sort_type) : undefined,
+      updateTimeStart: params.update_time_start
+        ? String(params.update_time_start)
+        : undefined,
+      updateTimeEnd: params.update_time_end
+        ? String(params.update_time_end)
+        : undefined,
+      userId,
+    });
   }
 
   private async replyMessage(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const messageId = String(params.message_id);
-    const body = {
-      msg_type: String(params.msg_type),
+    return replyToMessage({
+      messageId: String(params.message_id),
+      msgType: String(params.msg_type),
       content: String(params.content),
-    };
-
-    const result = await feishuPost(
-      "im.message.reply",
-      `/open-apis/im/v1/messages/${messageId}/reply`,
-      body,
-      { userId },
-    );
-    return result.data;
+      userId,
+    });
   }
 
   private async deleteMessage(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const messageId = String(params.message_id);
-    const result = await feishuDelete(
-      "im.message.delete",
-      `/open-apis/im/v1/messages/${messageId}`,
-      { userId },
-    );
-    return result.data;
+    return deleteMessage({
+      messageId: String(params.message_id),
+      userId,
+    });
   }
 
   private async forwardMessage(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const messageId = String(params.message_id);
-    const receiveIdType = params.receive_id_type
-      ? String(params.receive_id_type)
-      : "chat_id";
-
-    const body = {
-      receive_id: String(params.receive_id),
-    };
-
-    const result = await feishuPost(
-      "im.message.forward",
-      `/open-apis/im/v1/messages/${messageId}/forward`,
-      body,
-      { userId, params: { receive_id_type: receiveIdType } },
-    );
-    return result.data;
+    return forwardMessage({
+      messageId: String(params.message_id),
+      receiveId: String(params.receive_id),
+      receiveIdType: params.receive_id_type
+        ? String(params.receive_id_type)
+        : undefined,
+      userId,
+    });
   }
 
   private async getMessage(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const messageId = String(params.message_id);
-    const result = await feishuGet(
-      "im.message.get",
-      `/open-apis/im/v1/messages/${messageId}`,
-      { userId },
-    );
-    return result.data;
+    return getMessage({
+      messageId: String(params.message_id),
+      userId,
+    });
   }
 }
 
