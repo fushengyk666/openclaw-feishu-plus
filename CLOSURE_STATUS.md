@@ -1,6 +1,6 @@
 # CLOSURE_STATUS.md — 真实完成度
 
-> 最后更新: 2026-03-13 Round 6.1 — 文档收口校正
+> 最后更新: 2026-03-13 Round 14 — 平台层迁移完成 + 流式卡片修复
 
 ## 总体判断
 
@@ -100,8 +100,8 @@
 PLAN 目标                实际状态
 src/channel/             ✅ 完整（含 StreamingSession 封装）
 src/identity/            ✅ 双授权核心 + 79 操作 API Policy
+src/platform/            ✅ 已按 12 个业务域拆分 client（tools 仅做 schema/参数解析）
 src/tools/               ✅ 12 个业务域 + oauth
-src/platform/            ❌ 尚未按业务域拆分（当前在 tools 层）
 src/shared/              ❌ 尚未系统化整理
 skills/                  ✅ 5 个 workflow skills
 ```
@@ -112,8 +112,7 @@ skills/                  ✅ 5 个 workflow skills
 
 1. **真实飞书环境契约验证** — live harness 代码就绪，需凭证执行
 2. **流式卡片真实环境回归** — DM / 群聊 / finalize / settings 在真实 CardKit 环境确认
-3. **card action / event subscription** — Phase 3 剩余
-4. **platform 层拆分** — 当前 tools 层可用，但未演进到独立 platform 层
+3. **card action / event subscription** — Phase 3 剩余（已有最小 webhook ack，未路由到 agent）
 
 > 注：`send.ts` 的普通消息发送链路已接入 `identity/feishu-api`，不再属于当前阻塞项；
 > 当前尚未真实验证的是 **user token 在消息发送场景中的线上行为**，而非代码链路未接入。
