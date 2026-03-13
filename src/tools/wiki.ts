@@ -1,8 +1,15 @@
 /**
  * wiki.ts — 飞书 Wiki 知识库工具 (Dual-Auth)
+ *
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  */
 
-import { feishuGet, feishuPost } from "../identity/feishu-api.js";
+import {
+  listWikiSpaces,
+  getWikiNode,
+  listWikiSpaceNodes,
+  createWikiSpace,
+} from "../platform/wiki/index.js";
 
 export const WIKI_TOOL_DEFS = [
   {
@@ -73,63 +80,37 @@ export class WikiTools {
   }
 
   private async listSpaces(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "wiki.space.list",
-      "/open-apis/wiki/v2/spaces",
-      {
-        userId,
-        params: {
-          page_size: params.page_size ? Number(params.page_size) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await listWikiSpaces({
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async getNode(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "wiki.space.getNode",
-      "/open-apis/wiki/v2/nodes/get_node",
-      {
-        userId,
-        params: {
-          token: String(params.token),
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getWikiNode({
+      token: String(params.token),
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async listNodes(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "wiki.spaceNode.list",
-      "/open-apis/wiki/v2/spaces/get_node",
-      {
-        userId,
-        params: {
-          space_id: String(params.space_id),
-          parent_node_token: params.parent_node_token ? String(params.parent_node_token) : undefined,
-          page_size: params.page_size ? Number(params.page_size) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await listWikiSpaceNodes({
+      spaceId: String(params.space_id),
+      parentNodeToken: params.parent_node_token ? String(params.parent_node_token) : undefined,
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async createSpace(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "wiki.space.create",
-      "/open-apis/wiki/v2/spaces",
-      {
-        name: String(params.name),
-        description: params.description ? String(params.description) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await createWikiSpace({
+      name: String(params.name),
+      description: params.description ? String(params.description) : undefined,
+      userId,
+    });
   }
 }
 

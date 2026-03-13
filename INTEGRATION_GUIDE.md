@@ -206,7 +206,7 @@ npx tsx tests/verify-live-feishu-contract.ts
 
 1. **card action / callback** 尚未实现
 2. **event subscription** 仅 `im.message.receive_v1`
-3. **send.ts / outbound** channel 层发送仍直接用 Lark SDK
+3. **send.ts / outbound** 已改走 `identity/feishu-api`（双授权 HTTP 入口），但 user token 的真实发送行为仍需在真实飞书环境中回归验证
 4. **platform 层拆分** 未按 TECHNICAL_PLAN.md 演进到独立 platform 层
 
 ---
