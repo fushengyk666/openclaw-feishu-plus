@@ -11,7 +11,7 @@ openclaw-feishu-plus
 - 持续补齐飞书开放平台核心能力
 - 提供高频 workflow skills 增强体验
 
-## Current Status (2026-03-13, Round 10 — Begin Platform Layer: Docs Domain)
+## Current Status (2026-03-13, Round 11 — Platform Layer Expansion: Calendar Domain)
 
 ### ✅ 已完成
 
@@ -167,6 +167,11 @@ verify-plugin-send-paths.ts        → 4/4 ✅
 - `src/tools/doc.ts` 迁移为调用 platform client（保持 tool schema 不变）
 - 更新测试：`verify-api-policy-coverage.ts` 改为递归扫描 platform imports；`verify-send-path-deep-audit.ts` 放宽为 tools 可经 platform 间接接入 feishu-api
 - `npm run verify` 全绿
+
+### Platform Layer Expansion (Round 11)
+- 新增 `src/platform/calendar/client.ts` + `src/platform/calendar/index.ts`
+- `src/tools/calendar.ts` 迁移为调用 platform calendar client（保持 tool schema 不变；仍由 identity/feishu-api 执行）
+- `npm run verify` / `npm run build` / `npx tsc --noEmit` 全绿
 
 ### All Tests (21 files, all passing)
 

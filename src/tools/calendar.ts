@@ -8,11 +8,16 @@
  */
 
 import {
-  feishuGet,
-  feishuPost,
-  feishuPatch,
-  feishuDelete,
-} from "../identity/feishu-api.js";
+  listCalendars,
+  createCalendar,
+  deleteCalendar,
+  updateCalendar,
+  listCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  listFreeBusy,
+} from "../platform/calendar/index.js";
 
 // ─── 工具定义 ───
 
@@ -222,205 +227,143 @@ export class CalendarTools {
   }
 
   private async list(params: Record<string, unknown>, userId?: string) {
-    const qp: Record<string, string | number | boolean | undefined> = {};
-    // Feishu calendar list API requires page_size >= 50
-    if (params.page_size) qp.page_size = Math.max(Number(params.page_size), 50);
-    if (params.page_token) qp.page_token = String(params.page_token);
-
-    const result = await feishuGet(
-      "calendar.calendar.list",
-      "/open-apis/calendar/v4/calendars",
-      { userId, params: qp },
-    );
-    return result.data;
+    return await listCalendars({
+      pageSize:
+        typeof params.page_size === "number"
+          ? params.page_size
+          : params.page_size
+            ? Number(params.page_size)
+            : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async createCalendar(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const body: Record<string, unknown> = {
+    return await createCalendar({
       summary: String(params.summary),
-    };
-    if (params.description) body.description = String(params.description);
-    if (params.permissions) body.permissions = String(params.permissions);
-    if (params.color !== undefined) body.color = Number(params.color);
-
-    const result = await feishuPost(
-      "calendar.calendar.create",
-      "/open-apis/calendar/v4/calendars",
-      body,
-      { userId },
-    );
-    return result.data;
+      description: params.description ? String(params.description) : undefined,
+      permissions: params.permissions ? String(params.permissions) : undefined,
+      color: params.color !== undefined ? Number(params.color) : undefined,
+      userId,
+    });
   }
 
   private async deleteCalendar(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const result = await feishuDelete(
-      "calendar.calendar.delete",
-      `/open-apis/calendar/v4/calendars/${calendarId}`,
-      { userId },
-    );
-    return result.data;
+    return await deleteCalendar({
+      calendarId: String(params.calendar_id),
+      userId,
+    });
   }
 
   private async updateCalendar(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const body: Record<string, unknown> = {};
-    if (params.summary) body.summary = String(params.summary);
-    if (params.description) body.description = String(params.description);
-    if (params.permissions) body.permissions = String(params.permissions);
-    if (params.color !== undefined) body.color = Number(params.color);
-
-    const result = await feishuPatch(
-      "calendar.calendar.update",
-      `/open-apis/calendar/v4/calendars/${calendarId}`,
-      body,
-      { userId },
-    );
-    return result.data;
+    return await updateCalendar({
+      calendarId: String(params.calendar_id),
+      summary: params.summary ? String(params.summary) : undefined,
+      description: params.description ? String(params.description) : undefined,
+      permissions: params.permissions ? String(params.permissions) : undefined,
+      color: params.color !== undefined ? Number(params.color) : undefined,
+      userId,
+    });
   }
 
   private async listEvents(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.start_time) qp.start_time = String(params.start_time);
-    if (params.end_time) qp.end_time = String(params.end_time);
-    // Feishu calendar event list API requires page_size >= 50
-    if (params.page_size) qp.page_size = Math.max(Number(params.page_size), 50);
-    if (params.page_token) qp.page_token = String(params.page_token);
-
-    const result = await feishuGet(
-      "calendar.calendarEvent.list",
-      `/open-apis/calendar/v4/calendars/${calendarId}/events`,
-      { userId, params: qp },
-    );
-    return result.data;
+    return await listCalendarEvents({
+      calendarId: String(params.calendar_id),
+      startTime: params.start_time ? String(params.start_time) : undefined,
+      endTime: params.end_time ? String(params.end_time) : undefined,
+      pageSize:
+        typeof params.page_size === "number"
+          ? params.page_size
+          : params.page_size
+            ? Number(params.page_size)
+            : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async createEvent(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-
-    const body: Record<string, unknown> = {
-      summary: String(params.summary),
-      start_time: { timestamp: String(params.start_time), timezone: tz },
-      end_time: { timestamp: String(params.end_time), timezone: tz },
-    };
-
-    if (params.description) body.description = String(params.description);
-
-    // Parse reminders
-    if (params.reminders) {
+    let reminders: unknown = undefined;
+    if (params.reminders !== undefined) {
       try {
-        body.reminders =
+        reminders =
           typeof params.reminders === "string"
             ? JSON.parse(params.reminders)
             : params.reminders;
       } catch {
-        /* ignore parse error */
+        // ignore parse error
       }
     }
 
-    const qp: Record<string, string | number | boolean | undefined> = {
-      user_id_type: "open_id",
-    };
-
-    const result = await feishuPost(
-      "calendar.calendarEvent.create",
-      `/open-apis/calendar/v4/calendars/${calendarId}/events`,
-      body,
-      { userId, params: qp },
-    );
-
-    // Add attendees separately if provided
-    if (params.attendees && (result.data as any)?.event?.event_id) {
-      const eventId = (result.data as any).event.event_id;
+    let attendees: string[] | undefined = undefined;
+    if (params.attendees !== undefined) {
       try {
         const ids =
           typeof params.attendees === "string"
             ? JSON.parse(params.attendees as string)
             : params.attendees;
-        if (Array.isArray(ids) && ids.length > 0) {
-          const attendeeList = ids.map((id: string) => ({
-            type: "user",
-            user_id: id,
-          }));
-          await feishuPost(
-            "calendar.calendarEvent.create", // reuse the same operation
-            `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}/attendees`,
-            {
-              attendees: attendeeList,
-              need_notification:
-                params.need_notification !== false,
-            },
-            { userId, params: { user_id_type: "open_id" } },
-          );
-        }
+        if (Array.isArray(ids)) attendees = ids.map((x) => String(x));
       } catch {
-        /* best-effort */
+        // ignore parse error
       }
     }
 
-    return result.data;
+    return await createCalendarEvent({
+      calendarId: String(params.calendar_id),
+      summary: String(params.summary),
+      description: params.description ? String(params.description) : undefined,
+      startTime: String(params.start_time),
+      endTime: String(params.end_time),
+      timezone: params.timezone ? String(params.timezone) : undefined,
+      reminders,
+      attendees,
+      needNotification: params.need_notification !== false,
+      userId,
+    });
   }
 
   private async updateEvent(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const eventId = String(params.event_id);
-    const body: Record<string, unknown> = {};
-
-    if (params.summary) body.summary = String(params.summary);
-    if (params.description) body.description = String(params.description);
-    if (params.start_time) {
-      const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-      body.start_time = { timestamp: String(params.start_time), timezone: tz };
-    }
-    if (params.end_time) {
-      const tz = params.timezone ? String(params.timezone) : "Asia/Shanghai";
-      body.end_time = { timestamp: String(params.end_time), timezone: tz };
-    }
-
-    const result = await feishuPatch(
-      "calendar.calendarEvent.update",
-      `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}`,
-      body,
-      { userId },
-    );
-    return result.data;
+    return await updateCalendarEvent({
+      calendarId: String(params.calendar_id),
+      eventId: String(params.event_id),
+      summary: params.summary ? String(params.summary) : undefined,
+      description: params.description ? String(params.description) : undefined,
+      startTime: params.start_time ? String(params.start_time) : undefined,
+      endTime: params.end_time ? String(params.end_time) : undefined,
+      timezone: params.timezone ? String(params.timezone) : undefined,
+      userId,
+    });
   }
 
   private async deleteEvent(
     params: Record<string, unknown>,
     userId?: string,
   ) {
-    const calendarId = String(params.calendar_id);
-    const eventId = String(params.event_id);
-    const needNotification =
-      params.need_notification !== false ? "true" : "false";
-
-    const result = await feishuDelete(
-      "calendar.calendarEvent.delete",
-      `/open-apis/calendar/v4/calendars/${calendarId}/events/${eventId}`,
-      { userId, params: { need_notification: needNotification } },
-    );
-    return result.data;
+    return await deleteCalendarEvent({
+      calendarId: String(params.calendar_id),
+      eventId: String(params.event_id),
+      needNotification: params.need_notification !== false,
+      userId,
+    });
   }
 
   private async getFreeBusy(
@@ -428,25 +371,20 @@ export class CalendarTools {
     userId?: string,
   ) {
     // freebusy is user_only — will automatically trigger auth prompt if no user token
-    const body: Record<string, unknown> = {
-      time_min: String(params.time_min),
-      time_max: String(params.time_max),
-    };
-
+    let targetUserId: string | undefined = undefined;
     if (params.user_ids) {
       const userIds = params.user_ids as string[];
-      if (userIds.length > 0) {
-        body.user_id = String(userIds[0]);
+      if (Array.isArray(userIds) && userIds.length > 0) {
+        targetUserId = String(userIds[0]);
       }
     }
 
-    const result = await feishuPost(
-      "calendar.freebusy.list",
-      "/open-apis/calendar/v4/freebusy/list",
-      body,
-      { userId },
-    );
-    return result.data;
+    return await listFreeBusy({
+      timeMin: String(params.time_min),
+      timeMax: String(params.time_max),
+      targetUserId,
+      userId,
+    });
   }
 }
 
