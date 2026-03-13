@@ -1,10 +1,8 @@
 /**
- * perm.ts — 飞书云盘权限工具 (Lark SDK)
+ * perm.ts — 飞书云盘权限工具 (Dual-Auth)
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost, feishuDelete } from "../identity/feishu-api.js";
 
 export const PERM_TOOL_DEFS = [
   {
@@ -86,117 +84,124 @@ export const PERM_TOOL_DEFS = [
 ];
 
 export class PermTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_drive_list_permissions":
-        return this.listPermissions(params);
+        return this.listPermissions(params, userId);
       case "feishu_plus_drive_create_permission":
-        return this.createPermission(params);
+        return this.createPermission(params, userId);
       case "feishu_plus_drive_update_permission":
-        return this.updatePermission(params);
+        return this.updatePermission(params, userId);
       case "feishu_plus_drive_delete_permission":
-        return this.deletePermission(params);
+        return this.deletePermission(params, userId);
       case "feishu_plus_drive_transfer_owner":
-        return this.transferOwner(params);
+        return this.transferOwner(params, userId);
       default:
         throw new Error(`Unknown perm tool: ${toolName}`);
     }
   }
 
-  private async listPermissions(params: Record<string, unknown>) {
-    return this.client.drive.v1.permissionMember.list({
-      path: { token: String(params.token) },
-      params: {
-        type: String(params.type) as any,
-      },
-    });
-  }
-
-  private async createPermission(params: Record<string, unknown>) {
-    return this.client.drive.v1.permissionMember.create({
-      path: { token: String(params.token) },
-      params: {
-        type: String(params.type) as any,
-        need_notification: params.notify !== false,
-      },
-      data: {
-        member_type: String(params.member_type) as any,
-        member_id: String(params.member_id),
-        perm: String(params.perm) as any,
-      },
-    });
-  }
-
-  private async updatePermission(params: Record<string, unknown>) {
-    return this.client.drive.v1.permissionMember.update({
-      path: {
-        token: String(params.token),
-        member_id: String(params.permittee_id),
-      },
-      params: {
-        type: String(params.type) as any,
-        need_notification: false,
-      },
-      data: {
-        member_type: String(params.permittee_type) as any,
-        perm: String(params.perm) as any,
-      },
-    });
-  }
-
-  private async deletePermission(params: Record<string, unknown>) {
-    return this.client.drive.v1.permissionMember.delete({
-      path: {
-        token: String(params.token),
-        member_id: String(params.permittee_id),
-      },
-      params: {
-        type: String(params.type) as any,
-        member_type: String(params.permittee_type) as any,
-      },
-    });
-  }
-
-  private async transferOwner(params: Record<string, unknown>) {
-    // SDK doesn't have a direct transfer method; use permissionPublic or manual approach
-    const domain = this.config.domain === "lark" ? "lark" : "feishu";
-    // Fall back to REST API for owner transfer
-    const resp = await fetch(
-      `https://open.${domain}.cn/open-apis/drive/v1/permissions/${params.token}/members/transfer_owner`,
+  private async listPermissions(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "drive.permission.list",
+      `/open-apis/drive/v1/permissions/${String(params.token)}/members`,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+        userId,
+        params: {
+          type: String(params.type),
+          page_size: params.page_size ? Number(params.page_size) : 50,
+          page_token: params.page_token ? String(params.page_token) : undefined,
         },
-        body: JSON.stringify({
-          member_type: "user",
-          member_id: String(params.to_user_id),
-        }),
-      }
+      },
     );
-    return resp.json();
+    return result.data;
+  }
+
+  private async createPermission(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.permission.create",
+      `/open-apis/drive/v1/permissions/${String(params.token)}/members`,
+      {
+        member_type: String(params.member_type),
+        member_id: String(params.member_id),
+        perm: String(params.perm),
+      },
+      {
+        userId,
+        params: {
+          type: String(params.type),
+          need_notification: params.notify !== false,
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
+      },
+    );
+    return result.data;
+  }
+
+  private async updatePermission(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.permission.update",
+      `/open-apis/drive/v1/permissions/${String(params.token)}/members/${String(params.permittee_id)}`,
+      {
+        member_type: String(params.permittee_type),
+        perm: String(params.perm),
+      },
+      {
+        userId,
+        params: {
+          type: String(params.type),
+          need_notification: false,
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
+      },
+    );
+    return result.data;
+  }
+
+  private async deletePermission(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuDelete(
+      "drive.permission.delete",
+      `/open-apis/drive/v1/permissions/${String(params.token)}/members/${String(params.permittee_id)}`,
+      {
+        userId,
+        params: {
+          type: String(params.type),
+          member_type: String(params.permittee_type),
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
+      },
+    );
+    return result.data;
+  }
+
+  private async transferOwner(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.permission.transferOwner",
+      `/open-apis/drive/v1/permissions/${String(params.token)}/members/transfer_owner`,
+      {
+        member_type: "user",
+        member_id: String(params.to_user_id),
+      },
+      {
+        userId,
+        params: {
+          type: String(params.type),
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
+      },
+    );
+    return result.data;
   }
 }
 
 export function registerPermTools(
   tools: PermTools,
-  registerTool: (toolDef: typeof PERM_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof PERM_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   PERM_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) => tools.execute(toolDef.name, args, userId));
   });
 }

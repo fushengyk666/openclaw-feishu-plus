@@ -109,6 +109,11 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     userScopes: ["drive:drive:readonly"],
     tenantScopes: ["drive:drive:readonly"],
   },
+  "drive.file.get": {
+    support: "both",
+    userScopes: ["drive:drive:readonly"],
+    tenantScopes: ["drive:drive:readonly"],
+  },
   "drive.file.upload": {
     support: "both",
     userScopes: ["drive:drive"],
@@ -120,6 +125,21 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     tenantScopes: ["drive:drive:readonly"],
   },
   "drive.file.createFolder": {
+    support: "both",
+    userScopes: ["drive:drive"],
+    tenantScopes: ["drive:drive"],
+  },
+  "drive.file.delete": {
+    support: "both",
+    userScopes: ["drive:drive"],
+    tenantScopes: ["drive:drive"],
+  },
+  "drive.file.copy": {
+    support: "both",
+    userScopes: ["drive:drive"],
+    tenantScopes: ["drive:drive"],
+  },
+  "drive.file.move": {
     support: "both",
     userScopes: ["drive:drive"],
     tenantScopes: ["drive:drive"],
@@ -214,31 +234,31 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     note: "查询忙闲状态需要用户身份",
   },
 
-  // ─── 任务 (Task) ───
+  // ─── 任务 (Task v2 — user_access_token only) ───
   "task.task.create": {
-    support: "both",
+    support: "user_only",
     userScopes: ["task:task"],
-    tenantScopes: ["task:task"],
+    note: "Task v2 API requires user_access_token",
   },
   "task.task.get": {
-    support: "both",
+    support: "user_only",
     userScopes: ["task:task:readonly"],
-    tenantScopes: ["task:task:readonly"],
+    note: "Task v2 API requires user_access_token",
   },
   "task.task.list": {
-    support: "both",
+    support: "user_only",
     userScopes: ["task:task:readonly"],
-    tenantScopes: ["task:task:readonly"],
+    note: "Task v2 API requires user_access_token",
   },
   "task.task.update": {
-    support: "both",
+    support: "user_only",
     userScopes: ["task:task"],
-    tenantScopes: ["task:task"],
+    note: "Task v2 API requires user_access_token",
   },
   "task.task.complete": {
-    support: "both",
+    support: "user_only",
     userScopes: ["task:task"],
-    tenantScopes: ["task:task"],
+    note: "Task v2 API requires user_access_token",
   },
 
   // ─── 群聊 (Chat / IM) ───
@@ -320,11 +340,117 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     note: "转移所有权必须使用用户身份",
   },
 
+  // ─── 电子表格 (Sheets) ───
+  "sheets.spreadsheet.get": {
+    support: "both",
+    userScopes: ["sheets:spreadsheet:readonly"],
+    tenantScopes: ["sheets:spreadsheet:readonly"],
+  },
+  "sheets.spreadsheet.create": {
+    support: "both",
+    userScopes: ["sheets:spreadsheet"],
+    tenantScopes: ["sheets:spreadsheet"],
+  },
+  "sheets.spreadsheet.query": {
+    support: "both",
+    userScopes: ["sheets:spreadsheet:readonly"],
+    tenantScopes: ["sheets:spreadsheet:readonly"],
+  },
+  "sheets.spreadsheet.find": {
+    support: "both",
+    userScopes: ["sheets:spreadsheet:readonly"],
+    tenantScopes: ["sheets:spreadsheet:readonly"],
+  },
+  "sheets.spreadsheet.listSheets": {
+    support: "both",
+    userScopes: ["sheets:spreadsheet:readonly"],
+    tenantScopes: ["sheets:spreadsheet:readonly"],
+  },
+
+  // ─── 通讯录 (Contact) ───
+  "contact.user.get": {
+    support: "both",
+    userScopes: ["contact:user.base:readonly"],
+    tenantScopes: ["contact:user.base:readonly"],
+  },
+  "contact.user.batchGet": {
+    support: "both",
+    userScopes: ["contact:user.base:readonly"],
+    tenantScopes: ["contact:user.base:readonly"],
+  },
+  "contact.user.me": {
+    support: "user_only",
+    userScopes: ["contact:user.base:readonly"],
+    note: "获取当前用户信息必须使用用户身份",
+  },
+  "contact.department.get": {
+    support: "both",
+    userScopes: ["contact:department.base:readonly"],
+    tenantScopes: ["contact:department.base:readonly"],
+  },
+  "contact.department.children.list": {
+    support: "both",
+    userScopes: ["contact:department.base:readonly"],
+    tenantScopes: ["contact:department.base:readonly"],
+  },
+  "contact.department.user.list": {
+    support: "both",
+    userScopes: ["contact:user.base:readonly", "contact:department.base:readonly"],
+    tenantScopes: ["contact:user.base:readonly", "contact:department.base:readonly"],
+  },
+
   // ─── 审批 (Approval) ───
+  "approval.definition.get": {
+    support: "both",
+    userScopes: ["approval:approval:readonly"],
+    tenantScopes: ["approval:approval:readonly"],
+  },
+  "approval.instance.list": {
+    support: "both",
+    userScopes: ["approval:approval:readonly"],
+    tenantScopes: ["approval:approval:readonly"],
+  },
+  "approval.instance.get": {
+    support: "both",
+    userScopes: ["approval:approval:readonly"],
+    tenantScopes: ["approval:approval:readonly"],
+  },
   "approval.instance.create": {
     support: "user_only",
     userScopes: ["approval:approval"],
     note: "创建审批实例需要用户身份",
+  },
+  "approval.task.approve": {
+    support: "user_only",
+    userScopes: ["approval:approval"],
+    note: "同意审批任务需要用户身份",
+  },
+  "approval.task.reject": {
+    support: "user_only",
+    userScopes: ["approval:approval"],
+    note: "拒绝审批任务需要用户身份",
+  },
+  "approval.instance.cancel": {
+    support: "user_only",
+    userScopes: ["approval:approval"],
+    note: "撤回审批实例需要用户身份",
+  },
+
+  // ─── 搜索 (Search) ───
+  "search.message.search": {
+    support: "user_only",
+    userScopes: ["search:message:readonly"],
+    note: "搜索消息需要用户身份（结果基于用户可见范围）",
+  },
+  "search.doc.search": {
+    support: "user_only",
+    userScopes: ["search:docs:readonly"],
+    note: "搜索云文档需要用户身份（结果基于用户可见范围）",
+  },
+  "search.app.search": {
+    support: "user_only",
+    userScopes: ["search:app:readonly"],
+    note: "搜索应用需要用户身份",
   },
 
   // ─── 管理后台 ───

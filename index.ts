@@ -8,7 +8,7 @@
  * - tools 层处理飞书平台能力调用
  *
  * 关键改进：
- * - doc/calendar 工具已接入双授权决策链路
+ * - 全部已实现平台工具均已接入双授权决策链路
  * - 工具注册时自动提取 userId 并传递
  * - NeedUserAuthorizationError → 友好授权提示
  */
@@ -20,19 +20,22 @@ import { TokenResolver } from "./src/identity/token-resolver.js";
 import { initExecutor } from "./src/identity/request-executor.js";
 import { initFeishuApi, AuthRequiredError } from "./src/identity/feishu-api.js";
 
-// Tools (dual-auth): doc, calendar, chat
+// Tools (dual-auth): doc, calendar, chat, wiki, drive, bitable, task, perm, sheets, contact, approval, search
 import { DocTools, registerDocTools } from "./src/tools/doc.js";
 import { CalendarTools, registerCalendarTools } from "./src/tools/calendar.js";
 import { ChatTools, registerChatTools } from "./src/tools/chat.js";
-
-// Tools (legacy SDK-based, will be migrated later)
-import { OAuthTools, OAUTH_TOOL_DEFS } from "./src/tools/oauth-tool.js";
 import { WikiTools, registerWikiTools } from "./src/tools/wiki.js";
 import { DriveTools, registerDriveTools } from "./src/tools/drive.js";
 import { BitableTools, registerBitableTools } from "./src/tools/bitable.js";
 import { TaskTools, registerTaskTools } from "./src/tools/task.js";
 import { PermTools, registerPermTools } from "./src/tools/perm.js";
 import { SheetsTools, registerSheetsTools } from "./src/tools/sheets.js";
+import { ContactTools, registerContactTools } from "./src/tools/contact.js";
+import { ApprovalTools, registerApprovalTools } from "./src/tools/approval.js";
+import { SearchTools, registerSearchTools } from "./src/tools/search.js";
+
+// Tools (special flow)
+import { OAuthTools, OAUTH_TOOL_DEFS } from "./src/tools/oauth-tool.js";
 
 import { feishuPlusPlugin } from "./src/channel/plugin.js";
 import { setFeishuPlusRuntime } from "./src/channel/runtime.js";
@@ -155,26 +158,6 @@ function createDualAuthToolRegistrar(api: any): (
   };
 }
 
-// ─── Legacy Tool Registration (for tools not yet migrated) ───
-
-function createLegacyToolRegistrar(api: any): (
-  toolDef: { name: string; description: string; parameters: any },
-  execute: (args: any) => Promise<any>,
-) => void {
-  return (toolDef, execute) => {
-    if (typeof api.registerTool !== "function") return;
-
-    api.registerTool({
-      name: toolDef.name,
-      description: toolDef.description,
-      parameters: toolDef.parameters,
-      execute: async (_toolUseId: string, params: any, _ctx: any, _callback: any) => {
-        return execute(params);
-      },
-    });
-  };
-}
-
 // ─── Plugin Definition ───
 
 const plugin = {
@@ -196,15 +179,19 @@ const plugin = {
     const channelCfg = rawCfg?.channels?.[CONFIG_NAMESPACE] ?? {};
 
     const pluginConfig = parseConfig({
+      enabled: channelCfg.enabled,
+      mode: channelCfg.mode,
       appId: channelCfg.appId ?? "",
       appSecret: channelCfg.appSecret ?? "",
       domain: channelCfg.domain ?? "feishu",
+      connectionMode: channelCfg.connectionMode,
       auth: {
         preferUserToken: channelCfg.auth?.preferUserToken ?? true,
         autoPromptUserAuth: channelCfg.auth?.autoPromptUserAuth ?? true,
         store: channelCfg.auth?.store ?? "file",
         redirectUri: channelCfg.auth?.redirectUri,
       },
+      tools: channelCfg.tools,
     });
 
     const tokenStore = createTokenStore(
@@ -218,15 +205,62 @@ const plugin = {
 
     // 4. Register tools
 
-    // ── Dual-auth tools (doc, calendar) ──
+    // ── Dual-auth tools ──
     const dualAuthReg = createDualAuthToolRegistrar(api);
-    registerDocTools(new DocTools(), dualAuthReg);
-    registerCalendarTools(new CalendarTools(), dualAuthReg);
-    registerChatTools(new ChatTools(), dualAuthReg);
+    const enabledTools: string[] = [];
+
+    if (pluginConfig.tools.doc) {
+      registerDocTools(new DocTools(), dualAuthReg);
+      enabledTools.push("doc");
+    }
+    if (pluginConfig.tools.calendar) {
+      registerCalendarTools(new CalendarTools(), dualAuthReg);
+      enabledTools.push("calendar");
+    }
+    if (pluginConfig.tools.chat) {
+      registerChatTools(new ChatTools(), dualAuthReg);
+      enabledTools.push("chat");
+    }
+    if (pluginConfig.tools.wiki) {
+      registerWikiTools(new WikiTools(), dualAuthReg);
+      enabledTools.push("wiki");
+    }
+    if (pluginConfig.tools.drive) {
+      registerDriveTools(new DriveTools(), dualAuthReg);
+      enabledTools.push("drive");
+    }
+    if (pluginConfig.tools.bitable) {
+      registerBitableTools(new BitableTools(), dualAuthReg);
+      enabledTools.push("bitable");
+    }
+    if (pluginConfig.tools.task) {
+      registerTaskTools(new TaskTools(), dualAuthReg);
+      enabledTools.push("task");
+    }
+    if (pluginConfig.tools.perm) {
+      registerPermTools(new PermTools(), dualAuthReg);
+      enabledTools.push("perm");
+    }
+    if (pluginConfig.tools.sheets) {
+      registerSheetsTools(new SheetsTools(), dualAuthReg);
+      enabledTools.push("sheets");
+    }
+    if (pluginConfig.tools.contact) {
+      registerContactTools(new ContactTools(), dualAuthReg);
+      enabledTools.push("contact");
+    }
+    if (pluginConfig.tools.approval) {
+      registerApprovalTools(new ApprovalTools(), dualAuthReg);
+      enabledTools.push("approval");
+    }
+    if (pluginConfig.tools.search) {
+      registerSearchTools(new SearchTools(), dualAuthReg);
+      enabledTools.push("search");
+    }
 
     // ── OAuth management tools (pass userId from ctx) ──
     const oauthTools = new OAuthTools(pluginConfig, tokenStore);
-    if (typeof api.registerTool === "function") {
+    if (pluginConfig.tools.oauth && typeof api.registerTool === "function") {
       for (const toolDef of OAUTH_TOOL_DEFS) {
         api.registerTool({
           name: toolDef.name,
@@ -238,21 +272,12 @@ const plugin = {
           },
         });
       }
+      enabledTools.push("oauth");
     }
-
-    // ── Legacy tools (not yet migrated to dual-auth) ──
-    const legacyReg = createLegacyToolRegistrar(api);
-    registerWikiTools(new WikiTools(pluginConfig, tokenStore), legacyReg);
-    registerDriveTools(new DriveTools(pluginConfig, tokenStore), legacyReg);
-    registerBitableTools(new BitableTools(pluginConfig, tokenStore), legacyReg);
-    registerTaskTools(new TaskTools(pluginConfig, tokenStore), legacyReg);
-    registerPermTools(new PermTools(pluginConfig, tokenStore), legacyReg);
-    registerSheetsTools(new SheetsTools(pluginConfig, tokenStore), legacyReg);
 
     console.log(
       `[feishu-plus] registered (appId=${pluginConfig.appId?.slice(0, 10)}…, ` +
-      `dual-auth-tools=doc,calendar,chat, ` +
-      `legacy-tools=wiki,drive,bitable,task,perm,sheets)`,
+      `dual-auth-tools=${enabledTools.join(",")})`,
     );
   },
 };

@@ -2,3 +2,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+
+# Live contract harness output
+/tests/live-contract-results.json
+
+# Local learnings (agent)
+.learnings/

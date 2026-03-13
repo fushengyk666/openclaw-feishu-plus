@@ -34,6 +34,19 @@ import {
 // Messaging & Onboarding
 import { sendMessageFeishu } from "./send.js";
 import { feishuPlusOnboardingAdapter } from "./onboarding.js";
+import {
+  STREAMING_ELEMENT_ID,
+  buildThinkingStreamingCard,
+  buildFinalStreamingCard,
+  resolveStreamingTarget,
+  buildStreamingReferenceMessage,
+  buildStreamingContentUpdate,
+  buildStreamingFinalizeUpdate,
+  buildStreamingSettingsUpdate,
+} from "./streaming-card.js";
+import { createStreamingCardSdk } from "./streaming-card-executor.js";
+import { executeStreamingDispatch } from "./streaming-dispatch-executor.js";
+import { StreamingSession } from "./streaming-session.js";
 
 // Policy
 import { resolveFeishuPlusGroupToolPolicy } from "./policy.js";
@@ -196,6 +209,8 @@ export const feishuPlusPlugin: any = {
         chunkMode: { type: "string", enum: ["length", "newline"] },
         mediaMaxMb: { type: "number", minimum: 0 },
         renderMode: { type: "string", enum: ["auto", "raw", "card"] },
+        streaming: { type: "boolean" },
+        streamingInGroup: { type: "boolean" },
         auth: {
           type: "object",
           properties: {
@@ -217,6 +232,10 @@ export const feishuPlusPlugin: any = {
             task: { type: "boolean" },
             chat: { type: "boolean" },
             perm: { type: "boolean" },
+            sheets: { type: "boolean" },
+            contact: { type: "boolean" },
+            approval: { type: "boolean" },
+            search: { type: "boolean" },
           },
         },
       },
@@ -393,7 +412,7 @@ export const feishuPlusPlugin: any = {
   // ─── Outbound ───
 
   outbound: async (ctx: any) => {
-    const { cfg, to, message, accountId } = ctx;
+    const { cfg, to, message, accountId, senderId } = ctx;
 
     // Ensure to is resolved
     const resolvedTo = normalizeFeishuPlusTarget(to);
@@ -408,6 +427,7 @@ export const feishuPlusPlugin: any = {
       msgType: message?.msgType,
       content: message?.content,
       accountId: accountId,
+      userId: typeof senderId === "string" ? senderId : undefined,
     });
   },
 
@@ -651,14 +671,12 @@ async function handleInboundMessage(params: {
     const sendReply = async (text: string) => {
       try {
         const targetId = isDirect ? senderOpenId : chatId;
-        const receiveIdType = isDirect ? "open_id" : "chat_id";
-        await client.im.message.create({
-          params: { receive_id_type: receiveIdType },
-          data: {
-            receive_id: targetId,
-            msg_type: "text",
-            content: JSON.stringify({ text }),
-          },
+        await sendMessageFeishu({
+          cfg,
+          to: targetId,
+          text,
+          accountId,
+          userId: senderOpenId,
         });
       } catch (err) {
         errorFn(`feishu-plus[${accountId}]: failed to send reply: ${String(err)}`);
@@ -666,135 +684,32 @@ async function handleInboundMessage(params: {
     };
 
     // ── Streaming card constants ──
-    const STREAMING_ELEMENT_ID = "streaming_content";
-    const useStreaming = feishuCfg.streaming === true && isDirect; // streaming only in DM for now
-    let cardKitCardId: string | null = null;
-    let cardKitSequence = 0;
-    let accumulatedText = "";
-    let cardMessageId: string | null = null;
+    const useStreaming = feishuCfg.streaming === true && (isDirect || feishuCfg.streamingInGroup === true);
+    const streamingSdk = createStreamingCardSdk(client);
 
-    // ── CardKit helpers ──
-    const createStreamingCard = async (): Promise<boolean> => {
-      try {
-        const thinkingCard = {
-          schema: "2.0",
-          config: { streaming_mode: true, summary: { content: "思考中..." } },
-          body: {
-            elements: [
-              {
-                tag: "markdown",
-                content: "",
-                text_align: "left",
-                text_size: "normal_v2",
-                element_id: STREAMING_ELEMENT_ID,
-              },
-            ],
-          },
-        };
-
-        // Step 1: Create card entity
-        const createResp = await client.cardkit.v1.card.create({
-          data: { type: "card_json", data: JSON.stringify(thinkingCard) },
-        });
-        cardKitCardId = (createResp?.data as any)?.card_id ?? null;
-        if (!cardKitCardId) return false;
-        cardKitSequence = 1;
-
-        // Step 2: Send IM message referencing card_id
-        const targetId = isDirect ? senderOpenId : chatId;
-        const receiveIdType = isDirect ? "open_id" : "chat_id";
-        const sendResp = await client.im.message.create({
-          params: { receive_id_type: receiveIdType },
-          data: {
-            receive_id: targetId,
-            msg_type: "interactive",
-            content: JSON.stringify({ type: "card", data: { card_id: cardKitCardId } }),
-          },
-        });
-        cardMessageId = (sendResp?.data as any)?.message_id ?? null;
-        logFn(`feishu-plus[${accountId}]: streaming card created (card_id=${cardKitCardId}, msg_id=${cardMessageId})`);
-        return true;
-      } catch (err: any) {
-        const detail = err?.response?.data ? JSON.stringify(err.response.data) : String(err);
-        errorFn(`feishu-plus[${accountId}]: failed to create streaming card: ${detail}`);
-        return false;
-      }
-    };
-
-    const updateStreamingContent = async (text: string) => {
-      if (!cardKitCardId) return;
-      try {
-        cardKitSequence++;
-        await (client.cardkit as any).v1.cardElement.content({
-          data: { content: text, sequence: cardKitSequence },
-          path: { card_id: cardKitCardId, element_id: STREAMING_ELEMENT_ID },
-        });
-      } catch (err) {
-        errorFn(`feishu-plus[${accountId}]: stream update failed: ${String(err)}`);
-      }
-    };
-
-    const finalizeCard = async (fullText: string) => {
-      if (!cardKitCardId) return;
-      try {
-        // Build final card
-        const finalCard = {
-          schema: "2.0",
-          config: { streaming_mode: false },
-          body: {
-            elements: [
-              { tag: "markdown", content: fullText, text_align: "left", text_size: "normal_v2" },
-            ],
-          },
-        };
-        cardKitSequence++;
-        await (client.cardkit as any).v1.card.update({
-          data: { card: { type: "card_json", data: JSON.stringify(finalCard) }, sequence: cardKitSequence },
-          path: { card_id: cardKitCardId },
-        });
-        // Close streaming mode
-        cardKitSequence++;
-        await (client.cardkit as any).v1.card.settings({
-          data: { settings: JSON.stringify({ streaming_mode: false }), sequence: cardKitSequence },
-          path: { card_id: cardKitCardId },
-        });
-      } catch (err) {
-        errorFn(`feishu-plus[${accountId}]: finalize card failed: ${String(err)}`);
-      }
-    };
+    // StreamingSession encapsulates all per-message streaming state
+    const session = new StreamingSession({
+      useStreaming,
+      isDirect,
+      senderOpenId,
+      chatId,
+      accountId,
+      cfg,
+      streamingSdk,
+      log: {
+        info: (...args: any[]) => logFn(`feishu-plus[${accountId}]:`, ...args),
+        error: (...args: any[]) => errorFn(`feishu-plus[${accountId}]:`, ...args),
+      },
+    });
 
     // ── Dispatch to agent ──
-    let streamingCardCreated = false;
     try {
       const result = await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg,
         dispatcherOptions: {
           deliver: async (payload: any, info: any) => {
-            const text = payload?.text ?? payload?.body ?? payload?.content ?? "";
-            if (!text?.trim()) return;
-
-            if (useStreaming) {
-              // Streaming card mode
-              if (!streamingCardCreated) {
-                streamingCardCreated = await createStreamingCard();
-              }
-              if (streamingCardCreated && cardKitCardId) {
-                accumulatedText += text;
-                if (info?.kind === "final") {
-                  await updateStreamingContent(accumulatedText);
-                  await finalizeCard(accumulatedText);
-                } else {
-                  await updateStreamingContent(accumulatedText);
-                }
-              } else {
-                // Fallback to plain text if card creation failed
-                await sendReply(text);
-              }
-            } else {
-              // Static mode: send plain text
-              await sendReply(text);
-            }
+            await session.deliver(payload, info);
           },
         },
       });

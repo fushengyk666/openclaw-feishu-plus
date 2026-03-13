@@ -44,11 +44,15 @@ export const ToolsToggleSchema = z.object({
   task: z.boolean().default(true),
   chat: z.boolean().default(true),
   perm: z.boolean().default(true),
+  sheets: z.boolean().default(true),
+  contact: z.boolean().default(true),
+
+  // P2: 高级业务域（默认禁用，需用户按需启用）
+  approval: z.boolean().default(false),
+  search: z.boolean().default(false),
 
   // 未实现的功能（默认禁用）
-  approval: z.boolean().default(false),
   mail: z.boolean().default(false),
-  contact: z.boolean().default(false),
 });
 
 // ─── 插件主配置 ───

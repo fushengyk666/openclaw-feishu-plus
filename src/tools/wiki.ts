@@ -1,10 +1,8 @@
 /**
- * wiki.ts — 飞书 Wiki 知识库工具 (Lark SDK)
+ * wiki.ts — 飞书 Wiki 知识库工具 (Dual-Auth)
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost } from "../identity/feishu-api.js";
 
 export const WIKI_TOOL_DEFS = [
   {
@@ -59,78 +57,90 @@ export const WIKI_TOOL_DEFS = [
 ];
 
 export class WikiTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_wiki_list_spaces":
-        return this.listSpaces(params);
+        return this.listSpaces(params, userId);
       case "feishu_plus_wiki_get_node":
-        return this.getNode(params);
+        return this.getNode(params, userId);
       case "feishu_plus_wiki_list_nodes":
-        return this.listNodes(params);
+        return this.listNodes(params, userId);
       case "feishu_plus_wiki_create_space":
-        return this.createSpace(params);
+        return this.createSpace(params, userId);
       default:
         throw new Error(`Unknown wiki tool: ${toolName}`);
     }
   }
 
-  private async listSpaces(params: Record<string, unknown>) {
-    return this.client.wiki.v2.space.list({
-      params: {
-        page_size: params.page_size ? Number(params.page_size) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
+  private async listSpaces(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "wiki.space.list",
+      "/open-apis/wiki/v2/spaces",
+      {
+        userId,
+        params: {
+          page_size: params.page_size ? Number(params.page_size) : 50,
+          page_token: params.page_token ? String(params.page_token) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async getNode(params: Record<string, unknown>) {
-    return this.client.wiki.v2.space.getNode({
-      params: {
-        token: String(params.token),
+  private async getNode(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "wiki.space.getNode",
+      "/open-apis/wiki/v2/nodes/get_node",
+      {
+        userId,
+        params: {
+          token: String(params.token),
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async listNodes(params: Record<string, unknown>) {
-    return this.client.wiki.v2.spaceNode.list({
-      path: { space_id: String(params.space_id) },
-      params: {
-        parent_node_token: params.parent_node_token ? String(params.parent_node_token) : undefined,
-        page_size: params.page_size ? Number(params.page_size) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
+  private async listNodes(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "wiki.spaceNode.list",
+      "/open-apis/wiki/v2/spaces/get_node",
+      {
+        userId,
+        params: {
+          space_id: String(params.space_id),
+          parent_node_token: params.parent_node_token ? String(params.parent_node_token) : undefined,
+          page_size: params.page_size ? Number(params.page_size) : 50,
+          page_token: params.page_token ? String(params.page_token) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async createSpace(params: Record<string, unknown>) {
-    return this.client.wiki.v2.space.create({
-      data: {
+  private async createSpace(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "wiki.space.create",
+      "/open-apis/wiki/v2/spaces",
+      {
         name: String(params.name),
         description: params.description ? String(params.description) : undefined,
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 }
 
 export function registerWikiTools(
   tools: WikiTools,
-  registerTool: (toolDef: typeof WIKI_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof WIKI_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   WIKI_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) => tools.execute(toolDef.name, args, userId));
   });
 }

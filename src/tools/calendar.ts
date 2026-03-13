@@ -223,7 +223,8 @@ export class CalendarTools {
 
   private async list(params: Record<string, unknown>, userId?: string) {
     const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.page_size) qp.page_size = Math.min(Number(params.page_size), 50);
+    // Feishu calendar list API requires page_size >= 50
+    if (params.page_size) qp.page_size = Math.max(Number(params.page_size), 50);
     if (params.page_token) qp.page_token = String(params.page_token);
 
     const result = await feishuGet(
@@ -295,7 +296,8 @@ export class CalendarTools {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.start_time) qp.start_time = String(params.start_time);
     if (params.end_time) qp.end_time = String(params.end_time);
-    if (params.page_size) qp.page_size = Math.min(Number(params.page_size), 50);
+    // Feishu calendar event list API requires page_size >= 50
+    if (params.page_size) qp.page_size = Math.max(Number(params.page_size), 50);
     if (params.page_token) qp.page_token = String(params.page_token);
 
     const result = await feishuGet(

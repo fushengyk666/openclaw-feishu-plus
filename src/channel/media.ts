@@ -5,9 +5,29 @@
  */
 
 import { getLarkClient } from "../identity/client.js";
-import { resolveReceiveIdType } from "./targets.js";
 import { sendMessageFeishu } from "./send.js";
 import * as fs from "fs";
+
+export interface MediaSendHooks {
+  sendMessageFeishu: typeof sendMessageFeishu;
+}
+
+let mediaSendHooks: MediaSendHooks = {
+  sendMessageFeishu: (params) => sendMessageFeishu(params),
+};
+
+export function __setMediaSendHooksForTests(hooks: Partial<MediaSendHooks>): void {
+  mediaSendHooks = {
+    ...mediaSendHooks,
+    ...hooks,
+  };
+}
+
+export function __resetMediaSendHooksForTests(): void {
+  mediaSendHooks = {
+    sendMessageFeishu: (params) => sendMessageFeishu(params),
+  };
+}
 
 /**
  * Upload an image to Feishu and return the image_key.
@@ -77,13 +97,15 @@ export async function sendImageFeishu(params: {
   to: string;
   imageKey: string;
   accountId?: string;
+  userId?: string;
 }): Promise<any> {
-  return sendMessageFeishu({
+  return mediaSendHooks.sendMessageFeishu({
     cfg: params.cfg,
     to: params.to,
     msgType: "image",
     content: JSON.stringify({ image_key: params.imageKey }),
     accountId: params.accountId,
+    userId: params.userId,
   });
 }
 
@@ -95,13 +117,15 @@ export async function sendFileFeishu(params: {
   to: string;
   fileKey: string;
   accountId?: string;
+  userId?: string;
 }): Promise<any> {
-  return sendMessageFeishu({
+  return mediaSendHooks.sendMessageFeishu({
     cfg: params.cfg,
     to: params.to,
     msgType: "file",
     content: JSON.stringify({ file_key: params.fileKey }),
     accountId: params.accountId,
+    userId: params.userId,
   });
 }
 
@@ -114,6 +138,7 @@ export async function sendMediaFeishu(params: {
   filePath: string;
   fileName?: string;
   accountId?: string;
+  userId?: string;
 }): Promise<any> {
   const ext = params.filePath.split(".").pop()?.toLowerCase();
   const isImage = ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(ext || "");
@@ -130,6 +155,7 @@ export async function sendMediaFeishu(params: {
       to: params.to,
       imageKey,
       accountId: params.accountId,
+      userId: params.userId,
     });
   } else {
     const fileKey = await uploadFileFeishu({
@@ -144,6 +170,7 @@ export async function sendMediaFeishu(params: {
       to: params.to,
       fileKey,
       accountId: params.accountId,
+      userId: params.userId,
     });
   }
 }

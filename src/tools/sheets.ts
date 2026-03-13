@@ -1,10 +1,8 @@
 /**
- * sheets.ts — 飞书电子表格工具 (Lark SDK)
+ * sheets.ts — 飞书电子表格工具 (Dual-Auth)
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost } from "../identity/feishu-api.js";
 
 export const SHEETS_TOOL_DEFS = [
   {
@@ -70,91 +68,87 @@ export const SHEETS_TOOL_DEFS = [
 ];
 
 export class SheetsTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_sheets_get":
-        return this.getSpreadsheet(params);
+        return this.getSpreadsheet(params, userId);
       case "feishu_plus_sheets_create":
-        return this.createSpreadsheet(params);
+        return this.createSpreadsheet(params, userId);
       case "feishu_plus_sheets_query":
-        return this.querySheet(params);
+        return this.querySheet(params, userId);
       case "feishu_plus_sheets_find":
-        return this.findInSheet(params);
+        return this.findInSheet(params, userId);
       case "feishu_plus_sheets_list":
-        return this.listSheets(params);
+        return this.listSheets(params, userId);
       default:
         throw new Error(`Unknown sheets tool: ${toolName}`);
     }
   }
 
-  private async getSpreadsheet(params: Record<string, unknown>) {
-    return this.client.sheets.v3.spreadsheet.get({
-      path: { spreadsheet_token: String(params.spreadsheet_token) },
-    });
+  private async getSpreadsheet(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "sheets.spreadsheet.get",
+      `/open-apis/sheets/v3/spreadsheets/${String(params.spreadsheet_token)}`,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async createSpreadsheet(params: Record<string, unknown>) {
-    return this.client.sheets.v3.spreadsheet.create({
-      data: {
+  private async createSpreadsheet(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "sheets.spreadsheet.create",
+      "/open-apis/sheets/v3/spreadsheets",
+      {
         title: String(params.title),
         folder_token: params.folder_token ? String(params.folder_token) : undefined,
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async querySheet(params: Record<string, unknown>) {
-    return this.client.sheets.v3.spreadsheetSheet.get({
-      path: {
-        spreadsheet_token: String(params.spreadsheet_token),
-        sheet_id: String(params.sheet_id),
-      },
-    });
+  private async querySheet(params: Record<string, unknown>, userId?: string) {
+    const range = params.range ? String(params.range) : `${String(params.sheet_id)}!A1:Z1000`;
+    const result = await feishuGet(
+      "sheets.spreadsheet.query",
+      `/open-apis/sheets/v2/spreadsheets/${String(params.spreadsheet_token)}/values/${encodeURIComponent(range)}`,
+      { userId },
+    );
+    return result.data;
   }
 
-  private async findInSheet(params: Record<string, unknown>) {
-    return this.client.sheets.v3.spreadsheetSheet.find({
-      path: {
-        spreadsheet_token: String(params.spreadsheet_token),
-        sheet_id: String(params.sheet_id),
-      },
-      data: {
-        find_condition: {
-          range: params.range ? String(params.range) : `${params.sheet_id}`,
-        },
+  private async findInSheet(params: Record<string, unknown>, userId?: string) {
+    const range = `${String(params.sheet_id)}!A1:Z1000`;
+    const result = await feishuPost(
+      "sheets.spreadsheet.find",
+      `/open-apis/sheets/v2/spreadsheets/${String(params.spreadsheet_token)}/find`,
+      {
+        find_condition: { range },
         find: String(params.find),
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async listSheets(params: Record<string, unknown>) {
-    return this.client.sheets.v3.spreadsheetSheet.get({
-      path: {
-        spreadsheet_token: String(params.spreadsheet_token),
-        sheet_id: "",
-      },
-    });
+  private async listSheets(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "sheets.spreadsheet.listSheets",
+      `/open-apis/sheets/v3/spreadsheets/${String(params.spreadsheet_token)}/sheets/query`,
+      { userId },
+    );
+    return result.data;
   }
 }
 
 export function registerSheetsTools(
   tools: SheetsTools,
-  registerTool: (toolDef: typeof SHEETS_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof SHEETS_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   SHEETS_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) => tools.execute(toolDef.name, args, userId));
   });
 }

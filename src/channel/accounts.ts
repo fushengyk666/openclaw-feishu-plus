@@ -31,6 +31,7 @@ export interface FeishuAccountConfig {
   textChunkLimit?: number;
   mediaMaxMb?: number;
   streaming?: boolean;
+  streamingInGroup?: boolean;
   accounts?: Record<string, FeishuAccountConfig>;
 }
 

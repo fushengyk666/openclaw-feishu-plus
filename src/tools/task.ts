@@ -1,10 +1,8 @@
 /**
- * task.ts — 飞书任务工具 (Lark SDK)
+ * task.ts — 飞书任务工具 (Dual-Auth)
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost, feishuPatch } from "../identity/feishu-api.js";
 
 export const TASK_TOOL_DEFS = [
   {
@@ -80,109 +78,141 @@ export const TASK_TOOL_DEFS = [
 ];
 
 export class TaskTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_task_get":
-        return this.getTask(params);
+        return this.getTask(params, userId);
       case "feishu_plus_task_list":
-        return this.listTasks(params);
+        return this.listTasks(params, userId);
       case "feishu_plus_task_create":
-        return this.createTask(params);
+        return this.createTask(params, userId);
       case "feishu_plus_task_update":
-        return this.updateTask(params);
+        return this.updateTask(params, userId);
       case "feishu_plus_task_complete":
-        return this.completeTask(params);
+        return this.completeTask(params, userId);
       default:
         throw new Error(`Unknown task tool: ${toolName}`);
     }
   }
 
-  private async getTask(params: Record<string, unknown>) {
-    return this.client.task.v2.task.get({
-      path: { task_guid: String(params.task_id) },
-      params: {
-        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+  private async getTask(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "task.task.get",
+      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
+      {
+        userId,
+        params: {
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async listTasks(params: Record<string, unknown>) {
-    return this.client.task.v2.task.list({
-      params: {
-        page_size: params.page_size ? Number(params.page_size) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-        completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
-        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+  private async listTasks(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "task.task.list",
+      "/open-apis/task/v2/tasks",
+      {
+        userId,
+        params: {
+          page_size: params.page_size ? Number(params.page_size) : 50,
+          page_token: params.page_token ? String(params.page_token) : undefined,
+          completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async createTask(params: Record<string, unknown>) {
-    const data: any = {
-      summary: String(params.summary),
-    };
-    if (params.description) data.description = String(params.description);
-    if (params.due_time) data.due = { timestamp: String(params.due_time) };
-    if (params.assignee) data.members = [{ id: String(params.assignee), role: "assignee" }];
+  private async createTask(params: Record<string, unknown>, userId?: string) {
+    const body: any = { summary: String(params.summary) };
+    if (params.description) body.description = String(params.description);
+    if (params.due_time) body.due = { timestamp: String(params.due_time) };
+    if (params.assignee) body.members = [{ id: String(params.assignee), role: "assignee" }];
+    if (params.follower_ids) {
+      try {
+        const followerIds = typeof params.follower_ids === "string" ? JSON.parse(params.follower_ids) : params.follower_ids;
+        if (Array.isArray(followerIds)) {
+          const followers = followerIds.map((id: string) => ({ id, role: "follower" }));
+          body.members = [...(body.members ?? []), ...followers];
+        }
+      } catch {
+        // best-effort
+      }
+    }
 
-    return this.client.task.v2.task.create({
-      params: {
-        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+    const result = await feishuPost(
+      "task.task.create",
+      "/open-apis/task/v2/tasks",
+      body,
+      {
+        userId,
+        params: {
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
       },
-      data,
-    });
+    );
+    return result.data;
   }
 
-  private async updateTask(params: Record<string, unknown>) {
-    const data: any = {};
+  private async updateTask(params: Record<string, unknown>, userId?: string) {
+    const task: any = {};
     const updateFields: string[] = [];
+    if (params.summary !== undefined) { task.summary = String(params.summary); updateFields.push("summary"); }
+    if (params.description !== undefined) { task.description = String(params.description); updateFields.push("description"); }
+    if (params.due_time !== undefined) { task.due = { timestamp: String(params.due_time) }; updateFields.push("due"); }
+    if (params.completed !== undefined && Boolean(params.completed)) {
+      task.completed_at = String(Math.floor(Date.now() / 1000));
+      updateFields.push("completed_at");
+    }
+    if (params.assignee !== undefined) {
+      task.members = [{ id: String(params.assignee), role: "assignee" }];
+      updateFields.push("members");
+    }
 
-    if (params.summary !== undefined) { data.summary = String(params.summary); updateFields.push("summary"); }
-    if (params.description !== undefined) { data.description = String(params.description); updateFields.push("description"); }
-    if (params.due_time !== undefined) { data.due = { timestamp: String(params.due_time) }; updateFields.push("due"); }
-
-    return this.client.task.v2.task.patch({
-      path: { task_guid: String(params.task_id) },
-      params: {
-        user_id_type: params.user_id_type ? String(params.user_id_type) as any : undefined,
+    const result = await feishuPatch(
+      "task.task.update",
+      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
+      { task, update_fields: updateFields },
+      {
+        userId,
+        params: {
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
       },
-      data: {
-        task: data,
-        update_fields: updateFields,
-      },
-    });
+    );
+    return result.data;
   }
 
-  private async completeTask(params: Record<string, unknown>) {
-    return this.client.task.v2.task.patch({
-      path: { task_guid: String(params.task_id) },
-      data: {
+  private async completeTask(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPatch(
+      "task.task.complete",
+      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
+      {
         task: { completed_at: String(Math.floor(Date.now() / 1000)) },
         update_fields: ["completed_at"],
       },
-    });
+      {
+        userId,
+        params: {
+          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
+        },
+      },
+    );
+    return result.data;
   }
 }
 
 export function registerTaskTools(
   tools: TaskTools,
-  registerTool: (toolDef: typeof TASK_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof TASK_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   TASK_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) => tools.execute(toolDef.name, args, userId));
   });
 }

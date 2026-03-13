@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "eslint src/ --ext .ts"
+    "lint": "eslint src/ --ext .ts",
+    "verify": "npm run build && npx tsc --noEmit && for f in tests/*.ts; do echo \"--- $f\"; node --import=tsx \"$f\" || exit 1; done"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.59.0",
@@ -23,7 +24,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.4"
   },
   "openclaw": {
     "extensions": ["./dist/index.js"],

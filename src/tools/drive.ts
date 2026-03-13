@@ -1,10 +1,8 @@
 /**
- * drive.ts — 飞书云盘工具 (Lark SDK)
+ * drive.ts — 飞书云盘工具 (Dual-Auth)
  */
 
-import * as lark from "@larksuiteoapi/node-sdk";
-import type { PluginConfig } from "../identity/config-schema.js";
-import type { ITokenStore } from "../identity/token-store.js";
+import { feishuGet, feishuPost, feishuDelete } from "../identity/feishu-api.js";
 
 export const DRIVE_TOOL_DEFS = [
   {
@@ -110,73 +108,72 @@ export const DRIVE_TOOL_DEFS = [
 ];
 
 export class DriveTools {
-  private client: InstanceType<typeof lark.Client>;
-
-  constructor(
-    private config: PluginConfig,
-    private tokenStore: ITokenStore
-  ) {
-    this.client = new lark.Client({
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain === "lark" ? lark.Domain.Lark : lark.Domain.Feishu,
-      disableTokenCache: false,
-    });
-  }
-
-  async execute(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+  async execute(toolName: string, params: Record<string, unknown>, userId?: string): Promise<unknown> {
     switch (toolName) {
       case "feishu_plus_drive_list_files":
-        return this.listFiles(params);
+        return this.listFiles(params, userId);
       case "feishu_plus_drive_get_file":
-        return this.getFile(params);
+        return this.getFile(params, userId);
       case "feishu_plus_drive_download_file":
-        return this.downloadFile(params);
+        return this.downloadFile(params, userId);
       case "feishu_plus_drive_upload_file":
-        return this.uploadFile(params);
+        return this.uploadFile(params, userId);
       case "feishu_plus_drive_create_folder":
-        return this.createFolder(params);
+        return this.createFolder(params, userId);
       case "feishu_plus_drive_delete_file":
-        return this.deleteFile(params);
+        return this.deleteFile(params, userId);
       case "feishu_plus_drive_copy_file":
-        return this.copyFile(params);
+        return this.copyFile(params, userId);
       case "feishu_plus_drive_move_file":
-        return this.moveFile(params);
+        return this.moveFile(params, userId);
       default:
         throw new Error(`Unknown drive tool: ${toolName}`);
     }
   }
 
-  private async listFiles(params: Record<string, unknown>) {
-    return this.client.drive.v1.file.list({
-      params: {
-        folder_token: params.folder_token ? String(params.folder_token) : undefined,
-        page_size: params.page_size ? Number(params.page_size) : 50,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-        order_by: params.order_by ? String(params.order_by) as any : undefined,
+  private async listFiles(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuGet(
+      "drive.file.list",
+      "/open-apis/drive/v1/files",
+      {
+        userId,
+        params: {
+          folder_token: params.folder_token ? String(params.folder_token) : undefined,
+          page_size: params.page_size ? Number(params.page_size) : 50,
+          page_token: params.page_token ? String(params.page_token) : undefined,
+          order_by: params.order_by ? String(params.order_by) : undefined,
+          direction: params.direction ? String(params.direction) : undefined,
+        },
       },
-    });
+    );
+    return result.data;
   }
 
-  private async getFile(params: Record<string, unknown>) {
-    return this.client.drive.v1.meta.batchQuery({
-      data: {
+  private async getFile(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.file.get",
+      "/open-apis/drive/v1/metas/batch_query",
+      {
         request_docs: [{ doc_token: String(params.file_token), doc_type: "doc" }],
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async downloadFile(params: Record<string, unknown>) {
-    return this.client.drive.v1.meta.batchQuery({
-      data: {
-        request_docs: [{ doc_token: String(params.file_token), doc_type: "file" as any }],
+  private async downloadFile(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.file.download",
+      "/open-apis/drive/v1/metas/batch_query",
+      {
+        request_docs: [{ doc_token: String(params.file_token), doc_type: "file" }],
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async uploadFile(params: Record<string, unknown>) {
-    // Upload requires multipart form data with actual file content
-    // This is a preparation step - return upload guidance
+  private async uploadFile(params: Record<string, unknown>, _userId?: string) {
     return {
       message: "File upload requires actual file content. Use the Feishu drive upload API with multipart form data.",
       parent_token: params.parent_token,
@@ -185,49 +182,67 @@ export class DriveTools {
     };
   }
 
-  private async createFolder(params: Record<string, unknown>) {
-    return this.client.drive.v1.file.createFolder({
-      data: {
+  private async createFolder(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.file.createFolder",
+      "/open-apis/drive/v1/files/create_folder",
+      {
         name: String(params.folder_name),
         folder_token: String(params.parent_token),
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async deleteFile(params: Record<string, unknown>) {
-    return this.client.drive.v1.file.delete({
-      path: { file_token: String(params.file_token) },
-      params: { type: String(params.type) as any },
-    });
+  private async deleteFile(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuDelete(
+      "drive.file.delete",
+      `/open-apis/drive/v1/files/${String(params.file_token)}`,
+      {
+        userId,
+        params: { type: String(params.type) },
+      },
+    );
+    return result.data;
   }
 
-  private async copyFile(params: Record<string, unknown>) {
-    return this.client.drive.v1.file.copy({
-      path: { file_token: String(params.file_token) },
-      data: {
+  private async copyFile(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.file.copy",
+      `/open-apis/drive/v1/files/${String(params.file_token)}/copy`,
+      {
         name: String(params.name),
-        type: String(params.type) as any,
+        type: String(params.type),
         folder_token: String(params.folder_token),
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 
-  private async moveFile(params: Record<string, unknown>) {
-    return this.client.drive.v1.file.move({
-      path: { file_token: String(params.file_token) },
-      data: {
-        type: String(params.type) as any,
+  private async moveFile(params: Record<string, unknown>, userId?: string) {
+    const result = await feishuPost(
+      "drive.file.move",
+      `/open-apis/drive/v1/files/${String(params.file_token)}/move`,
+      {
+        type: String(params.type),
         folder_token: String(params.folder_token),
       },
-    });
+      { userId },
+    );
+    return result.data;
   }
 }
 
 export function registerDriveTools(
   tools: DriveTools,
-  registerTool: (toolDef: typeof DRIVE_TOOL_DEFS[0], execute: (args: any) => Promise<any>) => void
+  registerTool: (
+    toolDef: (typeof DRIVE_TOOL_DEFS)[0],
+    execute: (args: any, userId?: string) => Promise<any>,
+  ) => void,
 ): void {
   DRIVE_TOOL_DEFS.forEach((toolDef) => {
-    registerTool(toolDef, (args) => tools.execute(toolDef.name, args));
+    registerTool(toolDef, (args, userId) => tools.execute(toolDef.name, args, userId));
   });
 }
