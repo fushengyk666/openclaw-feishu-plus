@@ -18,6 +18,7 @@ export async function getUser(params: {
     `/open-apis/contact/v3/users/${params.targetUserId}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -40,6 +41,7 @@ export async function batchGetUsers(params: {
     },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -58,6 +60,7 @@ export async function getUserMe(params: {
     "/open-apis/contact/v3/users/me",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -77,6 +80,7 @@ export async function getDepartment(params: {
     `/open-apis/contact/v3/departments/${params.departmentId}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         department_id_type: params.departmentIdType,
       },
@@ -99,6 +103,7 @@ export async function listDepartmentChildren(params: {
     "/open-apis/contact/v3/departments",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         department_id: params.departmentId,
         department_id_type: params.departmentIdType,
@@ -125,6 +130,7 @@ export async function listDepartmentUsers(params: {
     "/open-apis/contact/v3/users/find_by_department",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         department_id: params.departmentId,
         department_id_type: params.departmentIdType,

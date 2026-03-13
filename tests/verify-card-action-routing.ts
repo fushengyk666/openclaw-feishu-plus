@@ -79,8 +79,12 @@ async function main() {
   assert.equal(sendCalls[0].operation, "im.message.create");
   assert.equal(sendCalls[0].path, "/open-apis/im/v1/messages");
   assert.equal(sendCalls[0].body.receive_id, "ou_test");
-  assert.equal(sendCalls[0].body.msg_type, "text");
-  assert.equal(sendCalls[0].body.content, JSON.stringify({ text: "hello world" }));
+  assert.equal(sendCalls[0].body.msg_type, "post");
+  // Default send format uses post with md tag for markdown rendering
+  const parsedContent = JSON.parse(sendCalls[0].body.content);
+  assert.ok(parsedContent.zh_cn, "should use post format with zh_cn");
+  assert.equal(parsedContent.zh_cn.content[0][0].tag, "md");
+  assert.equal(parsedContent.zh_cn.content[0][0].text, "hello world");
   assert.equal(sendCalls[0].opts?.params?.receive_id_type, "open_id");
 
   __resetSendRequestLikeForTests();

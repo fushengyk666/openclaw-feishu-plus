@@ -160,8 +160,7 @@ export async function createCalendarEvent(params: {
     // Best-effort add attendees (calendar API has a separate endpoint)
     try {
       await feishuPost(
-        // reuse the same operation for auth policy purposes
-        "calendar.calendarEvent.create",
+        "calendar.calendarEventAttendee.create",
         `/open-apis/calendar/v4/calendars/${params.calendarId}/events/${eventId}/attendees`,
         {
           attendees: attendeeList,

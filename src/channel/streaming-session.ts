@@ -18,7 +18,7 @@ import {
   STREAMING_ELEMENT_ID,
 } from "./streaming-card.js";
 import type { StreamingCardSdk } from "./streaming-card-executor.js";
-import { sendMessageFeishu } from "./send.js";
+import { sendMessageFeishu, sendMarkdownCardFeishu, shouldUseCard } from "./send.js";
 
 export interface StreamingSessionConfig {
   useStreaming: boolean;
@@ -96,6 +96,10 @@ export class StreamingSession {
     if (!this.streamingCardCreated) {
       const shouldCreate = this.partialCount >= 2 || shouldForceStreamingCard(this.currentText);
       if (!shouldCreate) return;
+      this.config.log.info(
+        `streaming: creating card (partials=${this.partialCount}, chars=${this.currentText.length}, ` +
+        `force=${shouldForceStreamingCard(this.currentText)})`,
+      );
       const created = await this.createStreamingCard();
       if (!created) return;
     }
@@ -110,7 +114,7 @@ export class StreamingSession {
     const isFinal = info?.kind === "final";
 
     if (!this.config.useStreaming) {
-      await this.sendPlainText(text);
+      await this.sendTextOrCard(text);
       return;
     }
 
@@ -130,7 +134,7 @@ export class StreamingSession {
 
     // Final-only / short response: do not force card.
     if (!this.streamingCardCreated) {
-      await this.sendPlainText(this.currentText);
+      await this.sendTextOrCard(this.currentText);
       this.plainTextDelivered = true;
       this.closed = true;
       return;
@@ -264,22 +268,41 @@ export class StreamingSession {
       return;
     }
     if (this.currentText.trim()) {
-      await this.sendPlainText(this.currentText);
+      await this.sendTextOrCard(this.currentText);
       this.plainTextDelivered = true;
       this.closed = true;
     }
   }
 
-  private async sendPlainText(text: string): Promise<void> {
+  /**
+   * Send text as either plain text (post/md) or a markdown card.
+   * Uses card rendering for code blocks and tables (better readability).
+   * This aligns with the official feishu plugin's `shouldUseCard()` pattern.
+   */
+  private async sendTextOrCard(text: string): Promise<void> {
     try {
       const targetId = this.config.isDirect ? this.config.senderOpenId : this.config.chatId;
-      await sendMessageFeishu({
-        cfg: this.config.cfg,
-        to: targetId,
-        text,
-        accountId: this.config.accountId,
-        userId: this.config.senderOpenId,
-      });
+      const useCard = shouldUseCard(text);
+
+      if (useCard) {
+        this.config.log.info(`delivery: markdown card (structured content detected)`);
+        await sendMarkdownCardFeishu({
+          cfg: this.config.cfg,
+          to: targetId,
+          text,
+          accountId: this.config.accountId,
+          userId: this.config.senderOpenId,
+        });
+      } else {
+        this.config.log.info(`delivery: post/md text (${text.length} chars)`);
+        await sendMessageFeishu({
+          cfg: this.config.cfg,
+          to: targetId,
+          text,
+          accountId: this.config.accountId,
+          userId: this.config.senderOpenId,
+        });
+      }
     } catch (err) {
       this.config.log.error(`failed to send reply: ${String(err)}`);
     }

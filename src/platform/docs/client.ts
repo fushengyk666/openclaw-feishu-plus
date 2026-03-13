@@ -54,7 +54,7 @@ export async function listDocxBlocks(params: {
   const result = await feishuGet(
     "docx.documentBlock.list",
     `/open-apis/docx/v1/documents/${params.documentId}/blocks`,
-    { userId: params.userId, params: queryParams },
+    { userId: params.userId, identityMode: params.identityMode, params: queryParams },
   );
 
   return result.data;

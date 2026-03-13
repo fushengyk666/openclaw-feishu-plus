@@ -18,6 +18,7 @@ export async function getTask(params: {
     `/open-apis/task/v2/tasks/${params.taskId}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -39,6 +40,7 @@ export async function listTasks(params: {
     "/open-apis/task/v2/tasks",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         page_size: typeof params.pageSize === "number" ? params.pageSize : 50,
         page_token: params.pageToken,
@@ -75,6 +77,7 @@ export async function createTask(params: {
     body,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -114,6 +117,7 @@ export async function updateTask(params: {
     { task, update_fields: updateFields },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },
@@ -137,6 +141,7 @@ export async function completeTask(params: {
     },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },

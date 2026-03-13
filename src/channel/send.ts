@@ -80,15 +80,69 @@ export function __resetSendModuleHooksForTests(): void {
   };
 }
 
+/** Detect if text contains markdown elements that benefit from card rendering */
+export function shouldUseCard(text: string): boolean {
+  return /```[\s\S]*?```/.test(text) || /\|.+\|[\r\n]+\|[-:| ]+\|/.test(text);
+}
+
+/**
+ * Build a Feishu post-format payload with markdown (md) tag.
+ * The official feishu plugin always uses this format for proper markdown rendering.
+ */
+function buildPostMessagePayload(text: string): { content: string; msgType: string } {
+  return {
+    content: JSON.stringify({
+      zh_cn: {
+        content: [
+          [{ tag: "md", text }],
+        ],
+      },
+    }),
+    msgType: "post",
+  };
+}
+
+/**
+ * Build a Feishu interactive card with markdown content.
+ * Used for code blocks, tables, and other structured content.
+ */
+export function buildMarkdownCard(text: string): Record<string, unknown> {
+  return {
+    schema: "2.0",
+    config: { wide_screen_mode: true },
+    body: {
+      elements: [{ tag: "markdown", content: text }],
+    },
+  };
+}
+
 /**
  * Send a text/card/file/image message to Feishu.
+ *
+ * When `msgType` and `content` are NOT specified (plain text path),
+ * uses `post` format with `md` tag for proper markdown rendering.
+ * This aligns with the official OpenClaw feishu plugin behavior.
  */
 export async function sendMessageFeishu(params: SendMessageParams): Promise<any> {
   const { to, text, msgType, content, userId, identityMode } = params;
 
   const receiveIdType = resolveReceiveIdType(to);
-  const finalMsgType = msgType || "text";
-  const finalContent = content || JSON.stringify({ text: text || "" });
+
+  // If explicit msgType/content provided (e.g. interactive card), use as-is
+  let finalMsgType: string;
+  let finalContent: string;
+  if (msgType && content) {
+    finalMsgType = msgType;
+    finalContent = content;
+  } else if (msgType) {
+    finalMsgType = msgType;
+    finalContent = content || JSON.stringify({ text: text || "" });
+  } else {
+    // Default path: use post format with md tag for proper markdown rendering
+    const payload = buildPostMessagePayload(text || "");
+    finalMsgType = payload.msgType;
+    finalContent = payload.content;
+  }
 
   const result = await requestLike.post(
     "im.message.create",
@@ -106,6 +160,20 @@ export async function sendMessageFeishu(params: SendMessageParams): Promise<any>
   );
 
   return result.data;
+}
+
+/**
+ * Send a message as a markdown card (interactive message).
+ * Renders markdown properly in Feishu (code blocks, tables, bold/italic, etc.)
+ */
+export async function sendMarkdownCardFeishu(params: SendMessageParams): Promise<any> {
+  const card = buildMarkdownCard(params.text || "");
+  return sendMessageFeishu({
+    ...params,
+    msgType: "interactive",
+    content: JSON.stringify(card),
+    text: undefined,
+  });
 }
 
 /**

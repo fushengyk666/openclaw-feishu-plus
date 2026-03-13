@@ -57,7 +57,7 @@ export async function listBitableRecords(params: {
   const result = await feishuGet(
     "bitable.appTableRecord.list",
     `/open-apis/bitable/v1/apps/${params.appToken}/tables/${params.tableId}/records`,
-    { userId: params.userId, params: queryParams },
+    { userId: params.userId, identityMode: params.identityMode, params: queryParams },
   );
   return result.data;
 }
@@ -76,6 +76,7 @@ export async function createBitableRecord(params: {
     { fields: params.fields },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         user_id_type: params.userIdType,
       },

@@ -266,6 +266,7 @@ export async function feishuPut<T = unknown>(
   opts?: {
     userId?: string;
     identityMode?: IdentityMode;
+    params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<FeishuApiResult<T>> {
   return feishuRequest<T>({
@@ -275,6 +276,7 @@ export async function feishuPut<T = unknown>(
     body,
     userId: opts?.userId,
     identityMode: opts?.identityMode,
+    params: opts?.params,
   });
 }
 

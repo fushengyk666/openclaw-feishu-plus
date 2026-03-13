@@ -18,6 +18,7 @@ export async function listWikiSpaces(params: {
     "/open-apis/wiki/v2/spaces",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         page_size: typeof params.pageSize === "number" ? params.pageSize : 50,
         page_token: params.pageToken,
@@ -39,6 +40,7 @@ export async function getWikiNode(params: {
     "/open-apis/wiki/v2/nodes/get_node",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         token: params.token,
         user_id_type: params.userIdType,
@@ -62,6 +64,7 @@ export async function listWikiSpaceNodes(params: {
     "/open-apis/wiki/v2/spaces/get_node",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         space_id: params.spaceId,
         parent_node_token: params.parentNodeToken,

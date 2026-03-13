@@ -5,7 +5,7 @@
  * All calls go through identity/feishu-api so dual-auth decisions apply.
  */
 
-import { feishuGet, feishuPost, feishuDelete, type IdentityMode } from "../../identity/feishu-api.js";
+import { feishuGet, feishuPost, feishuPut, feishuDelete, type IdentityMode } from "../../identity/feishu-api.js";
 
 export async function listPermissions(params: {
   token: string;
@@ -20,6 +20,7 @@ export async function listPermissions(params: {
     `/open-apis/drive/v1/permissions/${params.token}/members`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         type: params.type,
         page_size: typeof params.pageSize === "number" ? params.pageSize : 50,
@@ -51,6 +52,7 @@ export async function createPermission(params: {
     },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         type: params.type,
         need_notification: params.notify !== false,
@@ -71,7 +73,8 @@ export async function updatePermission(params: {
   userId?: string;
   identityMode?: IdentityMode;
 }) {
-  const result = await feishuPost(
+  // Feishu API uses PUT for updating permission members
+  const result = await feishuPut(
     "drive.permission.update",
     `/open-apis/drive/v1/permissions/${params.token}/members/${params.permitteeId}`,
     {
@@ -80,6 +83,7 @@ export async function updatePermission(params: {
     },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         type: params.type,
         need_notification: false,
@@ -104,6 +108,7 @@ export async function deletePermission(params: {
     `/open-apis/drive/v1/permissions/${params.token}/members/${params.permitteeId}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         type: params.type,
         member_type: params.permitteeType,
@@ -131,6 +136,7 @@ export async function transferOwner(params: {
     },
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         type: params.type,
         user_id_type: params.userIdType,

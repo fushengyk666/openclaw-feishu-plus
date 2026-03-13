@@ -21,6 +21,7 @@ export async function listDriveFiles(params: {
     "/open-apis/drive/v1/files",
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         folder_token: params.folderToken,
         page_size: typeof params.pageSize === "number" ? params.pageSize : 50,
@@ -109,6 +110,7 @@ export async function deleteDriveFile(params: {
     `/open-apis/drive/v1/files/${params.fileToken}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: { type: params.type },
     },
   );

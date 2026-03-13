@@ -69,8 +69,11 @@ async function main() {
     assert(calls[0].path === "/open-apis/im/v1/messages", "sendMessageFeishu: wrong path");
     assert(calls[0].opts.params.receive_id_type === "open_id", "sendMessageFeishu: wrong receive_id_type for open_id");
     assert(calls[0].opts.userId === "ou_sender_1", "sendMessageFeishu: missing userId pass-through");
-    assert(calls[0].body.msg_type === "text", "sendMessageFeishu: wrong msg_type");
-    assert(calls[0].body.content === JSON.stringify({ text: "hello" }), "sendMessageFeishu: wrong content");
+    assert(calls[0].body.msg_type === "post", "sendMessageFeishu: wrong msg_type");
+    // Default path uses post format with md tag for markdown rendering
+    const parsed = JSON.parse(calls[0].body.content);
+    assert(parsed.zh_cn?.content?.[0]?.[0]?.tag === "md", "sendMessageFeishu: wrong content tag");
+    assert(parsed.zh_cn?.content?.[0]?.[0]?.text === "hello", "sendMessageFeishu: wrong content text");
 
     reset();
     await sendMessageFeishu({ cfg: {}, to: "oc_chat_123", msgType: "text", content: JSON.stringify({ text: "chat" }) });

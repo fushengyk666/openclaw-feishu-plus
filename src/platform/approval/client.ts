@@ -61,6 +61,7 @@ export async function getApprovalInstance(params: {
     `/open-apis/approval/v4/instances/${params.instanceId}`,
     {
       userId: params.userId,
+      identityMode: params.identityMode,
       params: {
         locale: params.locale,
         user_id_type: params.userIdType,

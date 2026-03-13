@@ -228,6 +228,12 @@ export const API_POLICY: Record<string, ApiPolicy> = {
     userScopes: ["calendar:calendar"],
     tenantScopes: ["calendar:calendar"],
   },
+  "calendar.calendarEventAttendee.create": {
+    support: "both",
+    userScopes: ["calendar:calendar"],
+    tenantScopes: ["calendar:calendar"],
+    note: "添加日历事件参会人",
+  },
   "calendar.freebusy.list": {
     support: "user_only",
     userScopes: ["calendar:calendar:readonly"],
