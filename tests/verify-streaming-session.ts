@@ -49,13 +49,10 @@ function createMockSdk() {
         log.push("createCard");
         return { data: { card_id: nextCardId } };
       },
-      updateContent: async (payload: any) => {
-        log.push(`updateContent:${payload?.data?.elements?.[0]?.content ?? "?"}`);
+      updateElementContent: async (cardId: string, elementId: string, body: any) => {
+        log.push(`updateElementContent:${body?.content ?? "?"}`);
       },
-      updateFinalCard: async (payload: any) => {
-        log.push("updateFinalCard");
-      },
-      updateSettings: async (payload: any) => {
+      updateSettings: async (cardId: string, body: any) => {
         log.push("updateSettings");
       },
     },

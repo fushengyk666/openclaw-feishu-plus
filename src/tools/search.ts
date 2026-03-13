@@ -1,16 +1,17 @@
 /**
  * search.ts — 飞书搜索工具 (Dual-Auth)
  *
- * 飞书搜索业务域能力：
- * - 搜索消息（需要用户授权）
- * - 搜索云文档（需要用户授权）
- * - 搜索应用（需要用户授权）
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  *
  * 飞书搜索 API 全部要求 user_access_token，
  * 因为搜索结果基于用户可见范围（权限隔离）。
  */
 
-import { feishuPost } from "../identity/feishu-api.js";
+import {
+  searchMessage,
+  searchDoc,
+  searchApp,
+} from "../platform/search/index.js";
 
 export const SEARCH_TOOL_DEFS = [
   {
@@ -141,68 +142,39 @@ export class SearchTools {
   }
 
   private async searchMessage(params: Record<string, unknown>, userId?: string) {
-    const body: Record<string, unknown> = {
+    return await searchMessage({
       query: String(params.query),
-    };
-    if (Array.isArray(params.chat_ids) && params.chat_ids.length > 0) {
-      body.chat_ids = params.chat_ids.map(String);
-    }
-    if (params.message_type) body.message_type = String(params.message_type);
-    if (Array.isArray(params.from_ids) && params.from_ids.length > 0) {
-      body.from_ids = params.from_ids.map(String);
-    }
-    if (params.from_type) body.from_type = String(params.from_type);
-    if (params.start_time) body.start_time = String(params.start_time);
-    if (params.end_time) body.end_time = String(params.end_time);
-    if (params.page_size) body.page_size = Number(params.page_size);
-    if (params.page_token) body.page_token = String(params.page_token);
-
-    const result = await feishuPost(
-      "search.message.search",
-      "/open-apis/search/v2/message",
-      body,
-      { userId },
-    );
-    return result.data;
+      chatIds: Array.isArray(params.chat_ids) ? params.chat_ids.map(String) : undefined,
+      messageType: params.message_type ? String(params.message_type) : undefined,
+      fromIds: Array.isArray(params.from_ids) ? params.from_ids.map(String) : undefined,
+      fromType: params.from_type ? String(params.from_type) : undefined,
+      startTime: params.start_time ? String(params.start_time) : undefined,
+      endTime: params.end_time ? String(params.end_time) : undefined,
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async searchDoc(params: Record<string, unknown>, userId?: string) {
-    const body: Record<string, unknown> = {
-      search_key: String(params.search_key),
-    };
-    if (Array.isArray(params.owner_ids) && params.owner_ids.length > 0) {
-      body.owner_ids = params.owner_ids.map(String);
-    }
-    if (Array.isArray(params.chat_ids) && params.chat_ids.length > 0) {
-      body.chat_ids = params.chat_ids.map(String);
-    }
-    if (Array.isArray(params.docs_types) && params.docs_types.length > 0) {
-      body.docs_types = params.docs_types.map(String);
-    }
-    if (params.count !== undefined) body.count = Number(params.count);
-    if (params.offset !== undefined) body.offset = Number(params.offset);
-
-    const result = await feishuPost(
-      "search.doc.search",
-      "/open-apis/suite/docs-api/search/object",
-      body,
-      { userId },
-    );
-    return result.data;
+    return await searchDoc({
+      searchKey: String(params.search_key),
+      ownerIds: Array.isArray(params.owner_ids) ? params.owner_ids.map(String) : undefined,
+      chatIds: Array.isArray(params.chat_ids) ? params.chat_ids.map(String) : undefined,
+      docsTypes: Array.isArray(params.docs_types) ? params.docs_types.map(String) : undefined,
+      count: params.count !== undefined ? Number(params.count) : undefined,
+      offset: params.offset !== undefined ? Number(params.offset) : undefined,
+      userId,
+    });
   }
 
   private async searchApp(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "search.app.search",
-      "/open-apis/search/v1/app",
-      {
-        query: String(params.query),
-        page_size: params.page_size ? Number(params.page_size) : 20,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await searchApp({
+      query: String(params.query),
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 }
 

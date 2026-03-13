@@ -686,7 +686,11 @@ async function handleInboundMessage(params: {
 
     // ── Streaming card constants ──
     const useStreaming = feishuCfg.streaming === true && (isDirect || feishuCfg.streamingInGroup === true);
-    const streamingSdk = createStreamingCardSdk(client);
+    const streamingSdk = createStreamingCardSdk(client, {
+      appId: (feishuCfg.appId || "") as string,
+      appSecret: (feishuCfg.appSecret || "") as string,
+      domain: feishuCfg.domain as string | undefined,
+    });
 
     // StreamingSession encapsulates all per-message streaming state
     const session = new StreamingSession({

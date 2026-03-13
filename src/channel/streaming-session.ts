@@ -1,24 +1,21 @@
 /**
  * streaming-session.ts — Encapsulates all per-message streaming card state
  *
- * Replaces the scattered closure variables in plugin.ts (cardKitCardId,
- * cardKitSequence, accumulatedText, cardMessageId, streamingCardCreated)
- * with a single cohesive object.
- *
- * Benefits:
- * - plugin.ts handleInboundMessage stays thin
- * - State transitions are explicit and traceable
- * - Easier to test in isolation
- * - Natural attachment point for future features (e.g., timeout, retry budget)
+ * Aligned with the official OpenClaw feishu plugin's FeishuStreamingSession:
+ * - Uses raw HTTP via StreamingCardSdk (not SDK wrapper methods)
+ * - mergeStreamingText for proper text dedup/overlap handling
+ * - Throttled updates (max 10/sec)
+ * - uuid-based idempotent CardKit calls
+ * - Non-empty initial card content
+ * - Proper close sequence: final content update + streaming_mode=false
  */
 
 import {
   buildThinkingStreamingCard,
   resolveStreamingTarget,
   buildStreamingReferenceMessage,
-  buildStreamingContentUpdate,
-  buildStreamingFinalizeUpdate,
-  buildStreamingSettingsUpdate,
+  mergeStreamingText,
+  STREAMING_ELEMENT_ID,
 } from "./streaming-card.js";
 import type { StreamingCardSdk } from "./streaming-card-executor.js";
 import { sendMessageFeishu } from "./send.js";
@@ -45,6 +42,12 @@ export interface StreamingSessionConfig {
   };
 }
 
+function truncateSummary(text: string, max = 50): string {
+  if (!text) return "";
+  const clean = text.replace(/\n/g, " ").trim();
+  return clean.length <= max ? clean : clean.slice(0, max - 3) + "...";
+}
+
 /**
  * StreamingSession manages the complete lifecycle of a single streaming card
  * exchange for one inbound message.
@@ -59,9 +62,16 @@ export class StreamingSession {
   // ── Internal state ──
   private cardKitCardId: string | null = null;
   private cardKitSequence = 0;
-  private accumulatedText = "";
+  private currentText = "";
   private cardMessageId: string | null = null;
   private streamingCardCreated = false;
+  private closed = false;
+
+  // ── Throttling ──
+  private lastUpdateTime = 0;
+  private pendingText: string | null = null;
+  private updateThrottleMs = 100;
+  private queue: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: StreamingSessionConfig) {}
 
@@ -75,8 +85,13 @@ export class StreamingSession {
     return this.cardKitCardId;
   }
 
-  get currentText(): string {
-    return this.accumulatedText;
+  get accumulatedText(): string {
+    return this.currentText;
+  }
+
+  // Legacy compat alias
+  get currentText_(): string {
+    return this.currentText;
   }
 
   // ── Main dispatch method ──
@@ -106,8 +121,8 @@ export class StreamingSession {
       }
     }
 
-    // Card exists — accumulate and update
-    this.accumulatedText += text;
+    // Card exists — merge text using the official mergeStreamingText approach
+    this.currentText = mergeStreamingText(this.currentText, text);
 
     if (isFinal) {
       await this.finalizeCard();
@@ -151,9 +166,6 @@ export class StreamingSession {
       );
       return true;
     } catch (err: any) {
-      // Roll back state if CardKit create succeeded but reference message send failed.
-      // A streaming card is only considered "created" when both steps succeed,
-      // otherwise later deliver() calls would see an inconsistent half-created state.
       this.cardKitCardId = null;
       this.cardKitSequence = 0;
       this.cardMessageId = null;
@@ -166,27 +178,81 @@ export class StreamingSession {
   }
 
   private async updateStreamingContent(): Promise<void> {
-    if (!this.cardKitCardId) return;
-    try {
-      this.cardKitSequence++;
-      await this.config.streamingSdk.updateContent(
-        buildStreamingContentUpdate(this.cardKitCardId, this.cardKitSequence, this.accumulatedText),
-      );
-    } catch (err) {
-      this.config.log.error(`stream update failed: ${String(err)}`);
+    if (!this.cardKitCardId || this.closed) return;
+
+    const textToUpdate = this.currentText;
+    if (!textToUpdate) return;
+
+    // Throttle: skip if updated recently, but remember pending text
+    const now = Date.now();
+    if (now - this.lastUpdateTime < this.updateThrottleMs) {
+      this.pendingText = textToUpdate;
+      return;
     }
+    this.pendingText = null;
+    this.lastUpdateTime = now;
+
+    this.queue = this.queue.then(async () => {
+      if (!this.cardKitCardId || this.closed) return;
+      try {
+        this.cardKitSequence++;
+        await this.config.streamingSdk.updateElementContent(
+          this.cardKitCardId,
+          STREAMING_ELEMENT_ID,
+          {
+            content: textToUpdate,
+            sequence: this.cardKitSequence,
+            uuid: `s_${this.cardKitCardId}_${this.cardKitSequence}`,
+          },
+        );
+      } catch (err) {
+        this.config.log.error(`stream update failed: ${String(err)}`);
+      }
+    });
+    await this.queue;
   }
 
   private async finalizeCard(): Promise<void> {
-    if (!this.cardKitCardId) return;
+    if (!this.cardKitCardId || this.closed) return;
+    this.closed = true;
+
+    // Wait for any pending updates
+    await this.queue;
+
+    // Merge any pending text
+    const finalText = mergeStreamingText(
+      this.currentText,
+      this.pendingText ?? undefined,
+    );
+    this.currentText = finalText;
+
     try {
+      // Final content update (if text differs from what's been pushed)
       this.cardKitSequence++;
-      await this.config.streamingSdk.updateFinalCard(
-        buildStreamingFinalizeUpdate(this.cardKitCardId, this.cardKitSequence, this.accumulatedText),
+      await this.config.streamingSdk.updateElementContent(
+        this.cardKitCardId,
+        STREAMING_ELEMENT_ID,
+        {
+          content: finalText,
+          sequence: this.cardKitSequence,
+          uuid: `s_${this.cardKitCardId}_${this.cardKitSequence}`,
+        },
       );
+
+      // Close streaming mode
       this.cardKitSequence++;
       await this.config.streamingSdk.updateSettings(
-        buildStreamingSettingsUpdate(this.cardKitCardId, this.cardKitSequence),
+        this.cardKitCardId,
+        {
+          settings: JSON.stringify({
+            config: {
+              streaming_mode: false,
+              summary: { content: truncateSummary(finalText) },
+            },
+          }),
+          sequence: this.cardKitSequence,
+          uuid: `c_${this.cardKitCardId}_${this.cardKitSequence}`,
+        },
       );
     } catch (err) {
       this.config.log.error(`finalize card failed: ${String(err)}`);

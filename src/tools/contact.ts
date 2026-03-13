@@ -1,16 +1,17 @@
 /**
  * contact.ts — 飞书通讯录工具 (Dual-Auth)
  *
- * 当前优先补齐核心高频只读能力：
- * - 获取用户详情
- * - 批量获取用户详情
- * - 获取部门详情
- * - 列出部门子部门
- * - 列出部门用户
- * - 获取当前用户 me（user_only）
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  */
 
-import { feishuGet, feishuPost } from "../identity/feishu-api.js";
+import {
+  getUser,
+  batchGetUsers,
+  getUserMe,
+  getDepartment,
+  listDepartmentChildren,
+  listDepartmentUsers,
+} from "../platform/contact/index.js";
 
 export const CONTACT_TOOL_DEFS = [
   {
@@ -141,104 +142,56 @@ export class ContactTools {
   }
 
   private async getUser(params: Record<string, unknown>, userId?: string) {
-    const targetUserId = String(params.user_id);
-    const result = await feishuGet(
-      "contact.user.get",
-      `/open-apis/contact/v3/users/${targetUserId}`,
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getUser({
+      targetUserId: String(params.user_id),
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async batchGetUsers(params: Record<string, unknown>, userId?: string) {
-    const body = {
-      user_ids: Array.isArray(params.user_ids)
-        ? params.user_ids.map((v) => String(v))
-        : [],
-    };
-
-    const result = await feishuPost(
-      "contact.user.batchGet",
-      "/open-apis/contact/v3/users/batch_get",
-      body,
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await batchGetUsers({
+      userIds: Array.isArray(params.user_ids) ? params.user_ids.map((v) => String(v)) : [],
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async getUserMe(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "contact.user.me",
-      "/open-apis/contact/v3/users/me",
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getUserMe({
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async getDepartment(params: Record<string, unknown>, userId?: string) {
-    const departmentId = String(params.department_id);
-    const result = await feishuGet(
-      "contact.department.get",
-      `/open-apis/contact/v3/departments/${departmentId}`,
-      {
-        userId,
-        params: {
-          department_id_type: params.department_id_type ? String(params.department_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getDepartment({
+      departmentId: String(params.department_id),
+      departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
+      userId,
+    });
   }
 
   private async listDepartmentChildren(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "contact.department.children.list",
-      "/open-apis/contact/v3/departments",
-      {
-        userId,
-        params: {
-          department_id: String(params.department_id),
-          department_id_type: params.department_id_type ? String(params.department_id_type) : undefined,
-          page_size: params.page_size ? Number(params.page_size) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-          fetch_child: params.fetch_child !== undefined ? String(Boolean(params.fetch_child)) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await listDepartmentChildren({
+      departmentId: String(params.department_id),
+      departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      fetchChild: params.fetch_child !== undefined ? Boolean(params.fetch_child) : undefined,
+      userId,
+    });
   }
 
   private async listDepartmentUsers(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "contact.department.user.list",
-      "/open-apis/contact/v3/users/find_by_department",
-      {
-        userId,
-        params: {
-          department_id: String(params.department_id),
-          department_id_type: params.department_id_type ? String(params.department_id_type) : undefined,
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-          page_size: params.page_size ? Number(params.page_size) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await listDepartmentUsers({
+      departmentId: String(params.department_id),
+      departmentIdType: params.department_id_type ? String(params.department_id_type) : undefined,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 }
 

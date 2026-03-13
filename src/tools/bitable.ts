@@ -1,8 +1,17 @@
 /**
  * bitable.ts — 飞书多维表格工具 (Dual-Auth)
+ *
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  */
 
-import { feishuGet, feishuPost, feishuPatch, feishuDelete } from "../identity/feishu-api.js";
+import {
+  getBitableApp,
+  listBitableTables,
+  listBitableRecords,
+  createBitableRecord,
+  updateBitableRecord,
+  deleteBitableRecord,
+} from "../platform/bitable/index.js";
 
 export const BITABLE_TOOL_DEFS = [
   {
@@ -109,75 +118,62 @@ export class BitableTools {
   }
 
   private async getApp(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "bitable.app.get",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}`,
-      { userId },
-    );
-    return result.data;
+    return await getBitableApp({
+      appToken: String(params.app_token),
+      userId,
+    });
   }
 
   private async listTables(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "bitable.appTable.list",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}/tables`,
-      { userId },
-    );
-    return result.data;
+    return await listBitableTables({
+      appToken: String(params.app_token),
+      userId,
+    });
   }
 
   private async listRecords(params: Record<string, unknown>, userId?: string) {
-    const queryParams: Record<string, string | number | boolean | undefined> = {
-      page_size: params.page_size ? Number(params.page_size) : 20,
-      page_token: params.page_token ? String(params.page_token) : undefined,
-      view_id: params.view_id ? String(params.view_id) : undefined,
+    return await listBitableRecords({
+      appToken: String(params.app_token),
+      tableId: String(params.table_id),
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      viewId: params.view_id ? String(params.view_id) : undefined,
+      fieldIds: params.field_ids ? String(params.field_ids) : undefined,
       sort: params.sort ? String(params.sort) : undefined,
       filter: params.filter ? String(params.filter) : undefined,
-    };
-    if (params.field_ids) queryParams.field_names = String(params.field_ids);
-
-    const result = await feishuGet(
-      "bitable.appTableRecord.list",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}/tables/${String(params.table_id)}/records`,
-      { userId, params: queryParams },
-    );
-    return result.data;
+      userId,
+    });
   }
 
   private async createRecord(params: Record<string, unknown>, userId?: string) {
     const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
-    const result = await feishuPost(
-      "bitable.appTableRecord.create",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}/tables/${String(params.table_id)}/records`,
-      { fields },
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await createBitableRecord({
+      appToken: String(params.app_token),
+      tableId: String(params.table_id),
+      fields,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async updateRecord(params: Record<string, unknown>, userId?: string) {
     const fields = typeof params.fields === "string" ? JSON.parse(params.fields) : params.fields;
-    const result = await feishuPatch(
-      "bitable.appTableRecord.update",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}/tables/${String(params.table_id)}/records/${String(params.record_id)}`,
-      { fields },
-      { userId },
-    );
-    return result.data;
+    return await updateBitableRecord({
+      appToken: String(params.app_token),
+      tableId: String(params.table_id),
+      recordId: String(params.record_id),
+      fields,
+      userId,
+    });
   }
 
   private async deleteRecord(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuDelete(
-      "bitable.appTableRecord.delete",
-      `/open-apis/bitable/v1/apps/${String(params.app_token)}/tables/${String(params.table_id)}/records/${String(params.record_id)}`,
-      { userId },
-    );
-    return result.data;
+    return await deleteBitableRecord({
+      appToken: String(params.app_token),
+      tableId: String(params.table_id),
+      recordId: String(params.record_id),
+      userId,
+    });
   }
 }
 

@@ -1,18 +1,18 @@
 /**
  * approval.ts — 飞书审批工具 (Dual-Auth)
  *
- * 审批业务域核心能力：
- * - 获取审批定义
- * - 列出审批实例
- * - 获取审批实例详情
- * - 创建审批实例（user_only）
- * - 审批同意/拒绝（user_only）
- * - 撤回审批（user_only）
- *
- * 审批是强用户态业务域：创建/审批/撤回均需用户身份。
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  */
 
-import { feishuGet, feishuPost } from "../identity/feishu-api.js";
+import {
+  getApprovalDefinition,
+  listApprovalInstances,
+  getApprovalInstance,
+  createApprovalInstance,
+  approveApprovalTask,
+  rejectApprovalTask,
+  cancelApprovalInstance,
+} from "../platform/approval/index.js";
 
 export const APPROVAL_TOOL_DEFS = [
   {
@@ -226,59 +226,38 @@ export class ApprovalTools {
   }
 
   private async getDefinition(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "approval.definition.get",
-      "/open-apis/approval/v4/approvals",
-      {
-        approval_code: String(params.approval_code),
-        locale: params.locale ? String(params.locale) : "zh-CN",
-      },
-      { userId },
-    );
-    return result.data;
+    return await getApprovalDefinition({
+      approvalCode: String(params.approval_code),
+      locale: params.locale ? String(params.locale) : undefined,
+      userId,
+    });
   }
 
   private async listInstances(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "approval.instance.list",
-      "/open-apis/approval/v4/instances",
-      {
-        approval_code: String(params.approval_code),
-        start_time: String(params.start_time),
-        end_time: String(params.end_time),
-        page_size: params.page_size ? Number(params.page_size) : 100,
-        page_token: params.page_token ? String(params.page_token) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await listApprovalInstances({
+      approvalCode: String(params.approval_code),
+      startTime: String(params.start_time),
+      endTime: String(params.end_time),
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      userId,
+    });
   }
 
   private async getInstance(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "approval.instance.get",
-      `/open-apis/approval/v4/instances/${String(params.instance_id)}`,
-      {
-        userId,
-        params: {
-          locale: params.locale ? String(params.locale) : undefined,
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getApprovalInstance({
+      instanceId: String(params.instance_id),
+      locale: params.locale ? String(params.locale) : undefined,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async createInstance(params: Record<string, unknown>, userId?: string) {
-    const body: Record<string, unknown> = {
-      approval_code: String(params.approval_code),
-      form: String(params.form),
-    };
-    if (params.open_id) body.open_id = String(params.open_id);
-    if (params.department_id) body.department_id = String(params.department_id);
+    let nodeApproverList: unknown = undefined;
     if (params.node_approver_open_id_list) {
       try {
-        body.node_approver_open_id_list =
+        nodeApproverList =
           typeof params.node_approver_open_id_list === "string"
             ? JSON.parse(params.node_approver_open_id_list)
             : params.node_approver_open_id_list;
@@ -287,59 +266,45 @@ export class ApprovalTools {
       }
     }
 
-    const result = await feishuPost(
-      "approval.instance.create",
-      "/open-apis/approval/v4/instances",
-      body,
-      { userId },
-    );
-    return result.data;
+    return await createApprovalInstance({
+      approvalCode: String(params.approval_code),
+      form: String(params.form),
+      openId: params.open_id ? String(params.open_id) : undefined,
+      departmentId: params.department_id ? String(params.department_id) : undefined,
+      nodeApproverOpenIdList: nodeApproverList,
+      userId,
+    });
   }
 
   private async approveTask(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "approval.task.approve",
-      "/open-apis/approval/v4/tasks/approve",
-      {
-        approval_code: String(params.approval_code),
-        instance_code: String(params.instance_code),
-        task_id: String(params.task_id),
-        comment: params.comment ? String(params.comment) : undefined,
-        user_id: params.user_id ? String(params.user_id) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await approveApprovalTask({
+      approvalCode: String(params.approval_code),
+      instanceCode: String(params.instance_code),
+      taskId: String(params.task_id),
+      comment: params.comment ? String(params.comment) : undefined,
+      operatorUserId: params.user_id ? String(params.user_id) : undefined,
+      userId,
+    });
   }
 
   private async rejectTask(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "approval.task.reject",
-      "/open-apis/approval/v4/tasks/reject",
-      {
-        approval_code: String(params.approval_code),
-        instance_code: String(params.instance_code),
-        task_id: String(params.task_id),
-        comment: params.comment ? String(params.comment) : undefined,
-        user_id: params.user_id ? String(params.user_id) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await rejectApprovalTask({
+      approvalCode: String(params.approval_code),
+      instanceCode: String(params.instance_code),
+      taskId: String(params.task_id),
+      comment: params.comment ? String(params.comment) : undefined,
+      operatorUserId: params.user_id ? String(params.user_id) : undefined,
+      userId,
+    });
   }
 
   private async cancelInstance(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPost(
-      "approval.instance.cancel",
-      "/open-apis/approval/v4/instances/cancel",
-      {
-        approval_code: String(params.approval_code),
-        instance_code: String(params.instance_code),
-        user_id: params.user_id ? String(params.user_id) : undefined,
-      },
-      { userId },
-    );
-    return result.data;
+    return await cancelApprovalInstance({
+      approvalCode: String(params.approval_code),
+      instanceCode: String(params.instance_code),
+      operatorUserId: params.user_id ? String(params.user_id) : undefined,
+      userId,
+    });
   }
 }
 

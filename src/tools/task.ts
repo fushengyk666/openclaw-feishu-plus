@@ -1,8 +1,16 @@
 /**
  * task.ts — 飞书任务工具 (Dual-Auth)
+ *
+ * 所有 API 调用经 platform 层封装，最终仍通过 identity/feishu-api 执行（双授权）。
  */
 
-import { feishuGet, feishuPost, feishuPatch } from "../identity/feishu-api.js";
+import {
+  getTask,
+  listTasks,
+  createTask,
+  updateTask,
+  completeTask,
+} from "../platform/task/index.js";
 
 export const TASK_TOOL_DEFS = [
   {
@@ -96,112 +104,64 @@ export class TaskTools {
   }
 
   private async getTask(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "task.task.get",
-      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await getTask({
+      taskId: String(params.task_id),
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async listTasks(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuGet(
-      "task.task.list",
-      "/open-apis/task/v2/tasks",
-      {
-        userId,
-        params: {
-          page_size: params.page_size ? Number(params.page_size) : 50,
-          page_token: params.page_token ? String(params.page_token) : undefined,
-          completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await listTasks({
+      pageSize: params.page_size ? Number(params.page_size) : undefined,
+      pageToken: params.page_token ? String(params.page_token) : undefined,
+      completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async createTask(params: Record<string, unknown>, userId?: string) {
-    const body: any = { summary: String(params.summary) };
-    if (params.description) body.description = String(params.description);
-    if (params.due_time) body.due = { timestamp: String(params.due_time) };
-    if (params.assignee) body.members = [{ id: String(params.assignee), role: "assignee" }];
+    let followerIds: string[] | undefined;
     if (params.follower_ids) {
       try {
-        const followerIds = typeof params.follower_ids === "string" ? JSON.parse(params.follower_ids) : params.follower_ids;
-        if (Array.isArray(followerIds)) {
-          const followers = followerIds.map((id: string) => ({ id, role: "follower" }));
-          body.members = [...(body.members ?? []), ...followers];
-        }
+        const parsed = typeof params.follower_ids === "string" ? JSON.parse(params.follower_ids) : params.follower_ids;
+        if (Array.isArray(parsed)) followerIds = parsed.map(String);
       } catch {
         // best-effort
       }
     }
 
-    const result = await feishuPost(
-      "task.task.create",
-      "/open-apis/task/v2/tasks",
-      body,
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await createTask({
+      summary: String(params.summary),
+      description: params.description ? String(params.description) : undefined,
+      dueTime: params.due_time ? String(params.due_time) : undefined,
+      assignee: params.assignee ? String(params.assignee) : undefined,
+      followerIds,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async updateTask(params: Record<string, unknown>, userId?: string) {
-    const task: any = {};
-    const updateFields: string[] = [];
-    if (params.summary !== undefined) { task.summary = String(params.summary); updateFields.push("summary"); }
-    if (params.description !== undefined) { task.description = String(params.description); updateFields.push("description"); }
-    if (params.due_time !== undefined) { task.due = { timestamp: String(params.due_time) }; updateFields.push("due"); }
-    if (params.completed !== undefined && Boolean(params.completed)) {
-      task.completed_at = String(Math.floor(Date.now() / 1000));
-      updateFields.push("completed_at");
-    }
-    if (params.assignee !== undefined) {
-      task.members = [{ id: String(params.assignee), role: "assignee" }];
-      updateFields.push("members");
-    }
-
-    const result = await feishuPatch(
-      "task.task.update",
-      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
-      { task, update_fields: updateFields },
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await updateTask({
+      taskId: String(params.task_id),
+      summary: params.summary !== undefined ? String(params.summary) : undefined,
+      description: params.description !== undefined ? String(params.description) : undefined,
+      dueTime: params.due_time !== undefined ? String(params.due_time) : undefined,
+      completed: params.completed !== undefined ? Boolean(params.completed) : undefined,
+      assignee: params.assignee !== undefined ? String(params.assignee) : undefined,
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 
   private async completeTask(params: Record<string, unknown>, userId?: string) {
-    const result = await feishuPatch(
-      "task.task.complete",
-      `/open-apis/task/v2/tasks/${String(params.task_id)}`,
-      {
-        task: { completed_at: String(Math.floor(Date.now() / 1000)) },
-        update_fields: ["completed_at"],
-      },
-      {
-        userId,
-        params: {
-          user_id_type: params.user_id_type ? String(params.user_id_type) : undefined,
-        },
-      },
-    );
-    return result.data;
+    return await completeTask({
+      taskId: String(params.task_id),
+      userIdType: params.user_id_type ? String(params.user_id_type) : undefined,
+      userId,
+    });
   }
 }
 

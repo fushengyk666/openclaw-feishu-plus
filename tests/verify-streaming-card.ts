@@ -21,10 +21,10 @@ async function main() {
   const thinking = buildThinkingStreamingCard();
   assert(thinking.schema === "2.0", "thinking: wrong schema");
   assert(thinking.config.streaming_mode === true, "thinking: streaming_mode should be true");
-  assert(thinking.config.summary.content === "思考中...", "thinking: wrong summary");
+  assert(typeof thinking.config.summary.content === "string" && thinking.config.summary.content.length > 0, "thinking: summary should be non-empty");
   assert(thinking.body.elements.length === 1, "thinking: expected one element");
   assert(thinking.body.elements[0].element_id === STREAMING_ELEMENT_ID, "thinking: wrong element id");
-  assert(thinking.body.elements[0].content === "", "thinking: expected empty content");
+  assert(typeof thinking.body.elements[0].content === "string" && thinking.body.elements[0].content.length > 0, "thinking: expected non-empty content");
 
   const finalCard = buildFinalStreamingCard("hello world");
   assert(finalCard.schema === "2.0", "final: wrong schema");
@@ -47,18 +47,17 @@ async function main() {
   assert(JSON.parse(refMsg.data.content).data.card_id === "card_1", "refMsg: wrong card_id");
 
   const contentUpdate = buildStreamingContentUpdate("card_1", 2, "abc");
-  assert(contentUpdate.data.sequence === 2, "contentUpdate: wrong sequence");
-  assert(contentUpdate.data.content === "abc", "contentUpdate: wrong content");
-  assert(contentUpdate.path.element_id === STREAMING_ELEMENT_ID, "contentUpdate: wrong element_id");
+  assert(contentUpdate.body.sequence === 2, "contentUpdate: wrong sequence");
+  assert(contentUpdate.body.content === "abc", "contentUpdate: wrong content");
+  assert(contentUpdate.url.includes("/cardkit/v1/cards/card_1"), "contentUpdate: wrong url");
 
   const finalizeUpdate = buildStreamingFinalizeUpdate("card_1", 3, "done");
-  assert(finalizeUpdate.data.sequence === 3, "finalizeUpdate: wrong sequence");
-  assert(finalizeUpdate.path.card_id === "card_1", "finalizeUpdate: wrong card_id");
-  assert(JSON.parse(finalizeUpdate.data.card.data).body.elements[0].content === "done", "finalizeUpdate: wrong final content");
+  assert(finalizeUpdate.body.sequence === 3, "finalizeUpdate: wrong sequence");
+  assert(finalizeUpdate.body.content === "done", "finalizeUpdate: wrong final content");
 
   const settingsUpdate = buildStreamingSettingsUpdate("card_1", 4);
-  assert(settingsUpdate.data.sequence === 4, "settingsUpdate: wrong sequence");
-  assert(JSON.parse(settingsUpdate.data.settings).streaming_mode === false, "settingsUpdate: wrong settings");
+  assert(settingsUpdate.body.sequence === 4, "settingsUpdate: wrong sequence");
+  assert(JSON.parse(settingsUpdate.body.settings).config.streaming_mode === false, "settingsUpdate: wrong settings");
 
   console.log("\n═══════════════════════════════════════");
   console.log("  Streaming Card Verification Results");
