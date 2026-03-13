@@ -178,6 +178,11 @@ verify-plugin-send-paths.ts        → 4/4 ✅
 - `src/tools/chat.ts` 迁移为调用 platform IM client（保持 tool schema 不变；仍经 identity/feishu-api 执行）
 - `npm run verify` 全绿
 
+### Platform Layer Expansion (Round 13)
+- 新增 `src/platform/wiki/client.ts` + `src/platform/wiki/index.ts`
+- `src/tools/wiki.ts` 迁移为调用 platform Wiki client（保持 tool schema 不变；仍经 identity/feishu-api 执行）
+- `npm run verify` 全绿
+
 ### All Tests (21 files, all passing)
 
 ```
