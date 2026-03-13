@@ -181,6 +181,7 @@ export const feishuPlusPlugin: any = {
         },
         connectionMode: { type: "string", enum: ["websocket", "webhook"] },
         webhookPath: { type: "string" },
+        cardActionPath: { type: "string" },
         webhookHost: { type: "string" },
         webhookPort: { type: "integer", minimum: 1 },
         dmPolicy: { type: "string", enum: ["open", "pairing", "allowlist"] },
@@ -818,15 +819,35 @@ async function startWebhookListener(params: {
     autoChallenge: true,
   });
 
+  // Card action handler (interactive card callback)
+  const { createCardActionDispatcher } = await import("./card-action.js");
+  const cardDispatcher = createCardActionDispatcher({
+    encryptKey: feishuCfg.encryptKey,
+    verificationToken: feishuCfg.verificationToken,
+    loggerLevel: lark.LoggerLevel.warn,
+    onAction: async (evt) => {
+      // For now: minimal ack only.
+      // Future: route to OpenClaw runtime and update card with results.
+      const { buildCardActionAckCard } = await import("./card-action.js");
+      return buildCardActionAckCard(evt);
+    },
+  });
+  const cardExpressHandler = lark.adaptExpress(cardDispatcher, {
+    autoChallenge: true,
+  });
+
   const port = Number(feishuCfg.webhookPort || 3000);
   const host = feishuCfg.webhookHost || "0.0.0.0";
   const webhookPath = feishuCfg.webhookPath || "/webhook/feishu-plus";
+  const cardActionPath = feishuCfg.cardActionPath || `${webhookPath}/card-action`;
 
   const http = await import("http");
 
   return new Promise<void>((resolve, reject) => {
     const server = http.createServer((req: any, res: any) => {
-      if (req.url?.startsWith(webhookPath)) {
+      if (req.url?.startsWith(cardActionPath)) {
+        cardExpressHandler(req, res);
+      } else if (req.url?.startsWith(webhookPath)) {
         expressHandler(req, res);
       } else {
         res.writeHead(404);

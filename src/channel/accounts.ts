@@ -19,6 +19,8 @@ export interface FeishuAccountConfig {
   connectionMode?: "websocket" | "webhook";
   webhookHost?: string;
   webhookPath?: string;
+  /** Optional card action webhook path; defaults to `${webhookPath}/card-action` */
+  cardActionPath?: string;
   webhookPort?: number;
   dmPolicy?: "open" | "pairing" | "allowlist";
   allowFrom?: Array<string | number>;

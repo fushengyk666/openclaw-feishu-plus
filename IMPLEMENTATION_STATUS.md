@@ -11,7 +11,7 @@ openclaw-feishu-plus
 - 持续补齐飞书开放平台核心能力
 - 提供高频 workflow skills 增强体验
 
-## Current Status (2026-03-13, Round 7 — Live Contract Verification)
+## Current Status (2026-03-13, Round 9 — Card Action Webhook + Tests Green)
 
 ### ✅ 已完成
 
@@ -76,7 +76,9 @@ openclaw-feishu-plus
 
 #### Channel 发送路径收口
 - 13 项静态审计 + 19 项深度审计全部通过
-- 所有 IM message 发送路径通过 `send.ts` → `feishu-api.ts` → 双授权决策
+- 所有普通 IM message 发送路径通过 `send.ts` → `feishu-api.ts` → 双授权决策
+- `plugin.ts` outbound / sendReply、`streaming-session.ts` reference send、`media.ts` userId 透传均已验证
+- 允许保留的 raw SDK 特例已审计并文档化：CardKit 流式卡片、multipart media 上传、typing indicator、directory/probe 等 bot-context 场景
 
 #### 文档同步（本轮新增 ✅）
 - README.md 全面更新（12 个工具域、skills 列表、配置说明、测试说明）
@@ -87,9 +89,10 @@ openclaw-feishu-plus
 
 1. ~~**真实飞书凭证执行**~~：✅ Round 7 完成（见下方 Live Contract Results）
 2. **流式卡片真实环境验证**：DM + 群聊需真实飞书环境验证
-3. **card action / event subscription**：Phase 3 剩余
-4. **platform 层拆分**：当前 tools 层可用但未按 TECHNICAL_PLAN 演进到独立 platform 层
-5. **send.ts / outbound 接入 identity 层**：channel 发送仍直接用 SDK
+3. **card action / callback（最小版）**：✅ 已接入 webhook listener（默认 `${webhookPath}/card-action`），当前仅返回确认卡片；后续可演进为路由到 agent + 更新卡片
+4. **event subscription**：仍仅 `im.message.receive_v1`，Phase 3 剩余
+5. **platform 层拆分**：当前 tools 层可用但未按 TECHNICAL_PLAN 演进到独立 platform 层
+6. **raw SDK 发送例外项收口**：普通消息发送链路已切到 `send.ts → identity/feishu-api`，但 CardKit、media multipart 上传、typing indicator、directory/probe 等 bot-context/SDK 特例仍保留并已文档化
 
 ### 🔬 Live Contract Verification Results (Round 7, 2026-03-13)
 
@@ -141,6 +144,23 @@ Skipped: 18 (缺少 fixture env vars 或 user_only API 在 tenant-only 模式下
 npm run build → ✅ 零错误
 npx tsc --noEmit → ✅ 零错误
 ```
+
+### Targeted Verification (Round 8)
+```
+verify-channel-send.ts              → 6/6 ✅
+verify-no-direct-sdk-send.ts       → 4/4 ✅
+verify-channel-send-paths-audit.ts → 13/13 ✅
+verify-send-path-deep-audit.ts     → 19/19 ✅
+verify-plugin-send-paths.ts        → 4/4 ✅
+```
+
+**结论：普通 channel 发送主链路已完成 identity 收口；剩余 raw SDK 使用均为已审计的特例路径。**
+
+### Card Action Webhook (Round 9)
+- 新增 `src/channel/card-action.ts`：基于 `lark.CardActionHandler` 实现互动卡片回调
+- webhook 模式下默认注册路径：`${webhookPath}/card-action`（可用 `cardActionPath` 覆盖）
+- 当前实现为 **最小确认回调**（返回一张 ack 卡片，包含 action.tag/value 等调试信息）
+- 测试：全量 `npm run verify` 仍全绿
 
 ### All Tests (21 files, all passing)
 

@@ -94,6 +94,22 @@ function installFetchMock() {
       });
     }
 
+    // user access token endpoint
+    if (url.includes("/open-apis/authen/v1/refresh_access_token")) {
+      // Not used by these tests, but keep it stable.
+      return jsonResponse({
+        code: 0,
+        msg: "success",
+        data: {
+          access_token: "u-mock-user-token",
+          refresh_token: "ur-mock-refresh-token",
+          expires_in: 3600,
+          refresh_expires_in: 2592000,
+          scope: "",
+        },
+      });
+    }
+
     // generic API success payload
     return jsonResponse({
       code: 0,
@@ -118,21 +134,37 @@ function assert(condition: unknown, message: string) {
   if (!condition) throw new Error(message);
 }
 
-async function runCase(name: string, fn: () => Promise<unknown>, expected: {
-  method: string;
-  pathIncludes: string;
-}) {
+async function runCase(
+  name: string,
+  fn: () => Promise<unknown>,
+  expected: {
+    method: string;
+    pathIncludes: string;
+    authToken: string;
+    /** For user-token paths, we should not fetch a tenant token. */
+    allowTenantTokenFetch?: boolean;
+  },
+) {
   resetCalls();
   const result = await fn();
 
   assert(calls.length >= 1, `${name}: expected at least 1 fetch call, got ${calls.length}`);
   const authCalls = calls.filter((c) => c.url.includes("/open-apis/auth/v3/tenant_access_token/internal"));
-  assert(authCalls.length <= 1, `${name}: unexpected multiple tenant token fetches: ${authCalls.length}`);
+
+  const allowTenantFetch = expected.allowTenantTokenFetch ?? true;
+  if (allowTenantFetch) {
+    assert(authCalls.length <= 1, `${name}: unexpected multiple tenant token fetches: ${authCalls.length}`);
+  } else {
+    assert(authCalls.length === 0, `${name}: expected no tenant token fetch, got ${authCalls.length}`);
+  }
 
   const apiCall = calls[calls.length - 1];
   assert(apiCall.method === expected.method, `${name}: expected ${expected.method}, got ${apiCall.method}`);
   assert(apiCall.url.includes(expected.pathIncludes), `${name}: url mismatch: ${apiCall.url}`);
-  assert(apiCall.headers.Authorization === "Bearer t-mock-tenant-token", `${name}: missing/invalid Authorization header`);
+  assert(
+    apiCall.headers.Authorization === `Bearer ${expected.authToken}`,
+    `${name}: missing/invalid Authorization header (${apiCall.headers.Authorization ?? "<none>"})`,
+  );
 
   return {
     name,
@@ -146,6 +178,18 @@ async function main() {
   installFetchMock();
   try {
     const store = new MemoryTokenStore();
+
+    // Provide a mock user token for user_only tools (task/search/etc.)
+    await store.set(mockConfig.appId, "ou_mock_user", {
+      accessToken: "u-mock-user-token",
+      refreshToken: "ur-mock-refresh-token",
+      expiresAt: Date.now() + 3600_000,
+      refreshExpiresAt: Date.now() + 30 * 86400_000,
+      scopes: ["task:task:readonly"],
+      userOpenId: "ou_mock_user",
+      updatedAt: Date.now(),
+    } as any);
+
     const resolver = new TokenResolver(mockConfig, store);
     initExecutor(resolver);
     initFeishuApi(mockConfig);
@@ -164,55 +208,61 @@ async function main() {
     results.push(await runCase(
       "wiki.listSpaces",
       () => wiki.execute("feishu_plus_wiki_list_spaces", { page_size: 10 }),
-      { method: "GET", pathIncludes: "/open-apis/wiki/v2/spaces" },
+      { method: "GET", pathIncludes: "/open-apis/wiki/v2/spaces", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "drive.listFiles",
       () => drive.execute("feishu_plus_drive_list_files", { folder_token: "fld_xxx", page_size: 20 }),
-      { method: "GET", pathIncludes: "/open-apis/drive/v1/files" },
+      { method: "GET", pathIncludes: "/open-apis/drive/v1/files", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "bitable.listTables",
       () => bitable.execute("feishu_plus_bitable_list_tables", { app_token: "app_xxx" }),
-      { method: "GET", pathIncludes: "/open-apis/bitable/v1/apps/app_xxx/tables" },
+      { method: "GET", pathIncludes: "/open-apis/bitable/v1/apps/app_xxx/tables", authToken: "t-mock-tenant-token" },
     ) as any);
 
+    // task v2 is user_only — verify it uses user token (and does not fetch tenant token)
     results.push(await runCase(
-      "task.get",
-      () => task.execute("feishu_plus_task_get", { task_id: "task_xxx" }),
-      { method: "GET", pathIncludes: "/open-apis/task/v2/tasks/task_xxx" },
+      "task.get (user_only)",
+      () => task.execute("feishu_plus_task_get", { task_id: "task_xxx" }, "ou_mock_user"),
+      {
+        method: "GET",
+        pathIncludes: "/open-apis/task/v2/tasks/task_xxx",
+        authToken: "u-mock-user-token",
+        allowTenantTokenFetch: false,
+      },
     ) as any);
 
     results.push(await runCase(
       "perm.listPermissions",
       () => perm.execute("feishu_plus_drive_list_permissions", { token: "tok_xxx", type: "file" }),
-      { method: "GET", pathIncludes: "/open-apis/drive/v1/permissions/tok_xxx/members" },
+      { method: "GET", pathIncludes: "/open-apis/drive/v1/permissions/tok_xxx/members", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "sheets.get",
       () => sheets.execute("feishu_plus_sheets_get", { spreadsheet_token: "sheet_xxx" }),
-      { method: "GET", pathIncludes: "/open-apis/sheets/v3/spreadsheets/sheet_xxx" },
+      { method: "GET", pathIncludes: "/open-apis/sheets/v3/spreadsheets/sheet_xxx", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "contact.userGet",
       () => contact.execute("feishu_plus_contact_user_get", { user_id: "ou_xxx" }),
-      { method: "GET", pathIncludes: "/open-apis/contact/v3/users/ou_xxx" },
+      { method: "GET", pathIncludes: "/open-apis/contact/v3/users/ou_xxx", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "approval.getDefinition",
       () => approval.execute("feishu_plus_approval_get_definition", { approval_code: "APPROVAL_XXX" }),
-      { method: "POST", pathIncludes: "/open-apis/approval/v4/approvals" },
+      { method: "POST", pathIncludes: "/open-apis/approval/v4/approvals", authToken: "t-mock-tenant-token" },
     ) as any);
 
     results.push(await runCase(
       "approval.getInstance",
       () => approval.execute("feishu_plus_approval_get_instance", { instance_id: "inst_xxx" }),
-      { method: "GET", pathIncludes: "/open-apis/approval/v4/instances/inst_xxx" },
+      { method: "GET", pathIncludes: "/open-apis/approval/v4/instances/inst_xxx", authToken: "t-mock-tenant-token" },
     ) as any);
 
     console.log("\n═══════════════════════════════════════");
