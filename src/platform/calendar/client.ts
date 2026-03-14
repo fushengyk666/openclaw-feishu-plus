@@ -123,6 +123,7 @@ export async function createCalendarEvent(params: {
   endTime: string;
   timezone?: string;
   reminders?: unknown;
+  recurrence?: string;
   // attendees (open_id list) handled as best-effort second call.
   attendees?: string[];
   needNotification?: boolean;
@@ -138,6 +139,7 @@ export async function createCalendarEvent(params: {
   };
   if (params.description) body.description = params.description;
   if (params.reminders !== undefined) body.reminders = params.reminders;
+  if (params.recurrence) body.recurrence = params.recurrence;
 
   const qp: Record<string, string | number | boolean | undefined> = {
     user_id_type: "open_id",
@@ -184,6 +186,7 @@ export async function updateCalendarEvent(params: {
   startTime?: string;
   endTime?: string;
   timezone?: string;
+  recurrence?: string;
   userId?: string;
   identityMode?: IdentityMode;
 }) {
@@ -198,6 +201,7 @@ export async function updateCalendarEvent(params: {
     const tz = params.timezone ?? "Asia/Shanghai";
     body.end_time = { timestamp: String(params.endTime), timezone: tz };
   }
+  if (params.recurrence) body.recurrence = params.recurrence;
 
   const result = await feishuPatch(
     "calendar.calendarEvent.update",

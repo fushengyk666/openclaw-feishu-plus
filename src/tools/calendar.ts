@@ -133,6 +133,11 @@ export const CALENDAR_TOOL_DEFS = [
           description:
             '提醒设置（JSON 数组字符串，如 [{"minutes":5}]）',
         },
+        recurrence: {
+          type: "string",
+          description:
+            '重复规则（RFC5545 RRULE，如 FREQ=DAILY;INTERVAL=1）',
+        },
         need_notification: {
           type: "boolean",
           description: "是否发送通知（默认 true）",
@@ -158,6 +163,11 @@ export const CALENDAR_TOOL_DEFS = [
         },
         end_time: { type: "string", description: "结束时间（Unix 秒）" },
         timezone: { type: "string", description: "时区" },
+        recurrence: {
+          type: "string",
+          description:
+            '重复规则（RFC5545 RRULE，如 FREQ=DAILY;INTERVAL=1）',
+        },
       },
       required: ["calendar_id", "event_id"],
     },
@@ -354,6 +364,7 @@ export class CalendarTools {
       endTime: String(params.end_time),
       timezone: params.timezone ? String(params.timezone) : undefined,
       reminders,
+      recurrence: params.recurrence ? String(params.recurrence) : undefined,
       attendees,
       needNotification: params.need_notification !== false,
       userId,
@@ -374,6 +385,7 @@ export class CalendarTools {
       startTime: params.start_time ? String(params.start_time) : undefined,
       endTime: params.end_time ? String(params.end_time) : undefined,
       timezone: params.timezone ? String(params.timezone) : undefined,
+      recurrence: params.recurrence ? String(params.recurrence) : undefined,
       userId,
       identityMode,
     });

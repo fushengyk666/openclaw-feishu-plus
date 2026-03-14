@@ -509,6 +509,38 @@ export const feishuPlusPlugin: any = {
   },
 };
 
+// ─── Inbound Message Dedup ───
+
+/**
+ * Simple in-memory dedup cache to prevent processing the same Feishu event
+ * multiple times. Feishu WebSocket/webhook can deliver duplicate events,
+ * which without dedup would each create a new StreamingSession + "⏳ Thinking..."
+ * card, causing the bot to flood the chat with multiple Thinking messages.
+ *
+ * TTL = 5 minutes, max 2000 entries.
+ */
+const MESSAGE_DEDUP_TTL_MS = 5 * 60 * 1000;
+const MESSAGE_DEDUP_MAX_SIZE = 2000;
+const messageDedup = new Map<string, number>();
+
+function isMessageDuplicate(messageId: string): boolean {
+  if (!messageId) return false;
+  const now = Date.now();
+
+  // Evict stale entries periodically (every check when map is large)
+  if (messageDedup.size > MESSAGE_DEDUP_MAX_SIZE) {
+    for (const [key, ts] of messageDedup) {
+      if (now - ts > MESSAGE_DEDUP_TTL_MS) messageDedup.delete(key);
+    }
+  }
+
+  if (messageDedup.has(messageId)) {
+    return true; // duplicate
+  }
+  messageDedup.set(messageId, now);
+  return false;
+}
+
 // ─── Message Handler ───
 
 /**
@@ -542,6 +574,12 @@ async function handleInboundMessage(params: {
     if (!message || !sender) return;
 
     const messageId = message.message_id;
+
+    // ── Dedup: skip if this message_id was already processed ──
+    if (isMessageDuplicate(messageId)) {
+      logFn(`feishu-plus[${accountId}]: dedup skip message_id=${messageId}`);
+      return;
+    }
     const chatId = message.chat_id ?? "";
     const chatType = message.chat_type ?? "p2p"; // p2p or group
     const senderOpenId = sender.sender_id?.open_id ?? "";
