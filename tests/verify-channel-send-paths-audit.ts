@@ -86,13 +86,6 @@ async function main() {
     assert(sendReplyMatch, "sendReply must pass senderOpenId as userId");
   });
 
-  check("streaming-session.ts reference message passes userId", () => {
-    const src = readChannel("streaming-session.ts");
-    // The streaming card reference message should pass senderOpenId as userId
-    const streamingMatch = src.match(/buildStreamingReferenceMessage[\s\S]{0,1200}userId:\s*this\.config\.senderOpenId/);
-    assert(streamingMatch, "streaming reference message must pass senderOpenId as userId");
-  });
-
   check("plugin.ts notifyApproval: userId absence is documented/intentional", () => {
     const src = readChannel("plugin.ts");
     // notifyApproval sends to a newly-approved user — no user OAuth context exists

@@ -9,26 +9,23 @@
 - WebSocket / Webhook 双模式入站
 - doc / calendar / chat / wiki / drive / bitable / task / perm / sheets / contact / approval / search / oauth 工具注册
 - 上述工具全部接入 `feishuRequest -> executeFeishuRequest -> TokenResolver` 双授权决策链路
-- DM + 群聊流式卡片主链路（StreamingSession 封装）
+- DM + 群聊流式卡片主链路（StreamingCardController 封装）
 - 高频 workflow skills（doc / calendar / bitable / drive / approval）
-- 本地 mock / contract smoke tests 全面覆盖（21 个测试文件，186+ 项检查）
+- 本地 mock / contract smoke tests 全面覆盖（16 个测试文件）
 
 **仍未完全闭环的部分：**
 - 真实飞书环境端到端验证
 - 流式卡片真实环境稳定性
 - 更多高级事件订阅与 card action 能力
 
-更细状态请看：
-- `IMPLEMENTATION_STATUS.md`
-- `CLOSURE_STATUS.md`
-- `TECHNICAL_PLAN.md`
+更细状态请看 `IMPLEMENTATION_STATUS.md` 和 `CLOSURE_STATUS.md`。
 
 ## 核心特性
 
 - **Dual-Token 自动切换**：有 user_access_token 就优先走用户身份，没有就回退 tenant_access_token
 - **完整 Channel 集成**：pairing、directory、messaging、onboarding、policy、gateway、probe
 - **12 个飞书工具域**：doc、calendar、chat、wiki、drive、bitable、task、perm、sheets、contact、approval、search + oauth 授权管理
-- **流式卡片**：DM + 群聊场景，StreamingSession 封装（thinking / generating / complete）
+- **流式卡片**：DM + 群聊场景，StreamingCardController 封装（thinking / generating / complete）
 - **高频 Workflow Skills**：doc、calendar、bitable、drive、approval 工作流增强
 - **独立命名空间**：不影响其他已安装的飞书插件
 
@@ -140,7 +137,7 @@ openclaw plugins install openclaw-feishu-plus
 | Token 策略 | 以 tenant token 为主 | 自动切换 user / tenant |
 | 工具能力扩展 | 基础 channel 能力 | 12 个飞书业务域 + 5 个 workflow skills |
 | 双授权工具链路 | 非项目目标 | 79 个 API 操作全部接入双授权链路 |
-| 流式卡片 | 官方风格参考 | DM + 群聊，StreamingSession 封装 |
+| 流式卡片 | 官方风格参考 | DM + 群聊，StreamingCardController 封装 |
 
 ## 工具列表（当前注册名）
 
@@ -217,22 +214,30 @@ npx tsc --noEmit
 运行全部测试：
 
 ```bash
-# 所有 21 个测试文件
+# 所有 16 个测试文件
 for f in tests/verify-*.ts; do npx tsx "$f"; done
 ```
 
 关键测试文件：
 
-| 测试文件 | 检查项 | 说明 |
-|----------|--------|------|
-| verify-api-policy-coverage.ts | 28 | API Policy 完整性与域匹配 |
-| verify-approval-search-tools.ts | 10 | 审批/搜索工具双授权契约 |
-| verify-edge-cases.ts | 23 | 边界条件与回归防护 |
-| verify-live-harness-init.ts | 29 | 初始化链路完整性 |
-| verify-dual-auth-tools.ts | 9 | 所有工具域双授权路径 |
-| verify-streaming-session.ts | 6 | StreamingSession 封装 |
-| verify-streaming-group.ts | 15 | 群聊流式卡片 |
-| verify-send-path-deep-audit.ts | 19 | 发送路径深度审计 |
+| 测试文件 | 说明 |
+|----------|------|
+| verify-api-policy-coverage | API Policy 完整性与域匹配 |
+| verify-approval-search-tools | 审批/搜索双授权契约 |
+| verify-card-action-routing | 卡片交互路由 |
+| verify-channel-send-paths-audit | 发送路径静态审计 |
+| verify-channel-send | 消息发送 mock |
+| verify-dual-auth-tools | 所有域双授权路径 |
+| verify-dual-auth | 双授权决策路径 |
+| verify-edge-cases | 边界条件与回归 |
+| verify-live-feishu-contract | 真实环境契约（需凭证） |
+| verify-live-harness-init | 初始化链路 |
+| verify-media-send | 媒体发送 |
+| verify-no-direct-sdk-send | SDK 直发防护 |
+| verify-plugin-send-paths | 插件发送路径 |
+| verify-send-path-deep-audit | 发送路径深度审计 |
+| verify-streaming-card-executor | 流式卡片执行器 |
+| verify-tool-toggle-registration | 工具开关 |
 
 真实飞书环境契约验证：
 
@@ -244,9 +249,9 @@ npx tsx tests/verify-live-feishu-contract.ts
 
 ## 参考文档
 
+- `IMPLEMENTATION_STATUS.md` — 当前真实实现状态
+- `CLOSURE_STATUS.md` — 分阶段完成度
 - `TECHNICAL_PLAN.md` — 完整技术方案与目标边界
-- `IMPLEMENTATION_STATUS.md` — 当前真实实现状态与下一步
-- `CLOSURE_STATUS.md` — 分阶段完成度说明
 - `INTEGRATION_GUIDE.md` — 接入指南
 
 ## License

@@ -1,7 +1,7 @@
 /**
  * plugin.ts — OpenClaw Feishu Plus Channel Plugin
  *
- * 完整的 OpenClaw ChannelPlugin 实现，对标 OpenClau feishu 扩展。
+ * 完整的 OpenClaw ChannelPlugin 实现，对标 OpenClaw 官方 feishu 扩展。
  * 同时保留 dual-token / token-first 核心架构。
  */
 
@@ -35,7 +35,8 @@ import {
 import { sendMessageFeishu } from "./send.js";
 import { feishuPlusOnboardingAdapter } from "./onboarding.js";
 import { createStreamingCardSdk } from "./streaming-card-executor.js";
-import { StreamingSession } from "./streaming-session.js";
+import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
+import { resolveFooterConfig } from "./footer-config.js";
 
 // Policy
 import { resolveFeishuPlusGroupToolPolicy } from "./policy.js";
@@ -201,6 +202,19 @@ export const feishuPlusPlugin: any = {
         renderMode: { type: "string", enum: ["auto", "raw", "card"] },
         streaming: { type: "boolean" },
         streamingInGroup: { type: "boolean" },
+        replyMode: {
+          oneOf: [
+            { type: "string", enum: ["auto", "static", "streaming"] },
+            {
+              type: "object",
+              properties: {
+                default: { type: "string", enum: ["auto", "static", "streaming"] },
+                direct: { type: "string", enum: ["auto", "static", "streaming"] },
+                group: { type: "string", enum: ["auto", "static", "streaming"] }
+              }
+            }
+          ]
+        },
         auth: {
           type: "object",
           properties: {
@@ -514,7 +528,7 @@ export const feishuPlusPlugin: any = {
 /**
  * Simple in-memory dedup cache to prevent processing the same Feishu event
  * multiple times. Feishu WebSocket/webhook can deliver duplicate events,
- * which without dedup would each create a new StreamingSession + "⏳ Thinking..."
+ * which without dedup would each create a new streaming card + "⏳ Thinking..."
  * card, causing the bot to flood the chat with multiple Thinking messages.
  *
  * TTL = 5 minutes, max 2000 entries.
@@ -618,36 +632,9 @@ async function handleInboundMessage(params: {
       return;
     }
 
-    // ── Typing indicator: add reaction ──
-    let typingReactionId: string | null = null;
-    if (feishuCfg.typingIndicator !== false && messageId) {
-      try {
-        const typingResp = await client.im.messageReaction.create({
-          path: { message_id: messageId },
-          data: { reaction_type: { emoji_type: "Typing" } },
-        });
-        typingReactionId = (typingResp?.data as any)?.reaction_id ?? null;
-      } catch {
-        // Best-effort
-      }
-    }
-
-    // Helper to remove typing indicator
-    const removeTyping = async () => {
-      if (!typingReactionId || !messageId) return;
-      try {
-        await client.im.messageReaction.delete({
-          path: { message_id: messageId, reaction_id: typingReactionId },
-        });
-      } catch {
-        // Best-effort
-      }
-      typingReactionId = null;
-    };
-
     // ── Resolve agent route ──
     const peer = { kind: (isDirect ? "direct" : "group") as "direct" | "group", id: isDirect ? senderOpenId : chatId };
-    
+
     let route: any;
     try {
       route = channelRuntime.routing.resolveAgentRoute({
@@ -658,7 +645,6 @@ async function handleInboundMessage(params: {
       });
     } catch (routeErr: any) {
       errorFn(`feishu-plus[${accountId}]: route resolution failed: ${String(routeErr)}`);
-      await removeTyping();
       return;
     }
 
@@ -705,32 +691,37 @@ async function handleInboundMessage(params: {
           text,
           accountId,
           userId: senderOpenId,
+          replyToMessageId: messageId,
+          replyInThread: !isDirect,
         });
       } catch (err) {
         errorFn(`feishu-plus[${accountId}]: failed to send reply: ${String(err)}`);
       }
     };
 
-    // ── Streaming card constants ──
-    const useStreaming = feishuCfg.streaming === true && (isDirect || feishuCfg.streamingInGroup === true);
+    // ── Official-style reply dispatcher ──
     const streamingSdk = createStreamingCardSdk(client, {
       appId: (feishuCfg.appId || "") as string,
       appSecret: (feishuCfg.appSecret || "") as string,
       domain: feishuCfg.domain as string | undefined,
     });
 
-    // StreamingSession encapsulates all per-message streaming state
-    const session = new StreamingSession({
-      useStreaming,
-      isDirect,
-      senderOpenId,
-      chatId,
-      accountId,
+    const replyDispatcher = createFeishuReplyDispatcher({
       cfg,
+      agentId: route.agentId,
+      chatId,
+      replyToMessageId: messageId,
+      accountId,
+      chatType,
+      senderOpenId,
+      skipTyping: feishuCfg.typingIndicator === false,
+      replyInThread: !isDirect,
       streamingSdk,
       log: {
         info: (...args: any[]) => logFn(`feishu-plus[${accountId}]:`, ...args),
+        warn: (...args: any[]) => logFn(`feishu-plus[${accountId}]:`, ...args),
         error: (...args: any[]) => errorFn(`feishu-plus[${accountId}]:`, ...args),
+        debug: (...args: any[]) => logFn(`feishu-plus[${accountId}]:`, ...args),
       },
     });
 
@@ -739,34 +730,15 @@ async function handleInboundMessage(params: {
       const result = await channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg,
-        dispatcherOptions: {
-          deliver: async (payload: any, info: any) => {
-            await session.deliver(payload, info);
-          },
-          onIdle: async () => {
-            await session.closeIfNeeded();
-          },
-          onError: async (err: any) => {
-            errorFn(`feishu-plus[${accountId}]: buffered dispatcher error: ${String(err)}`);
-            await session.closeIfNeeded();
-          },
-        },
-        replyOptions: {
-          disableBlockStreaming: true,
-          onPartialReply: async (payload: any) => {
-            const partialText = payload?.text ?? "";
-            if (!partialText?.trim()) return;
-            await session.onPartialText(partialText);
-          },
-        },
+        dispatcherOptions: replyDispatcher.dispatcherOptions,
+        replyOptions: replyDispatcher.replyOptions,
       });
-      await session.closeIfNeeded();
+      replyDispatcher.markFullyComplete();
+      await replyDispatcher.dispatcherOptions.onIdle();
       logFn(`feishu-plus[${accountId}]: dispatchReply result: ${JSON.stringify(result)}`);
     } catch (dispatchErr: any) {
       errorFn(`feishu-plus[${accountId}]: dispatchReply failed: ${String(dispatchErr)}`);
-      await session.closeIfNeeded();
-    } finally {
-      await removeTyping();
+      await replyDispatcher.dispatcherOptions.onError(dispatchErr, { kind: "dispatch" });
     }
 
     logFn(`feishu-plus[${accountId}]: dispatch complete for message ${messageId}`);

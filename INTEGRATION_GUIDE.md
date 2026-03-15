@@ -5,9 +5,9 @@
 > 当前状态：
 > - 12 个飞书业务域工具 + OAuth 管理工具，全部接入双授权链路
 > - 飞书消息通道可运行（WebSocket / Webhook）
-> - DM + 群聊流式卡片（StreamingSession 封装）
+> - DM + 群聊流式卡片（StreamingCardController 封装）
 > - 5 个高频 workflow skills
-> - 21 个测试文件、186+ 项检查全部通过
+> - 16 个测试文件全部通过
 
 如需看完整完成度，参考 `CLOSURE_STATUS.md` 和 `IMPLEMENTATION_STATUS.md`。
 
@@ -25,19 +25,19 @@
 
 | 域 | 工具数 | 双授权 | user_only 操作 |
 |----|--------|--------|----------------|
-| doc | 4 | ✅ | — |
+| doc | 4 | ✅ | - |
 | calendar | 9 | ✅ | freebusy |
-| chat/message | 8 | ✅ | — |
-| wiki | 4 | ✅ | — |
-| drive | 8 | ✅ | — |
-| bitable | 6 | ✅ | — |
-| task | 5 | ✅ | — |
+| chat/message | 8 | ✅ | - |
+| wiki | 4 | ✅ | - |
+| drive | 8 | ✅ | - |
+| bitable | 6 | ✅ | - |
+| task | 5 | ✅ | - |
 | perm | 5 | ✅ | transferOwner |
-| sheets | 5 | ✅ | — |
+| sheets | 5 | ✅ | - |
 | contact | 6 | ✅ | user.me |
 | approval | 7 | ✅ | create/approve/reject/cancel |
 | search | 3 | ✅ | 全部 user_only |
-| oauth | 4 | — | 授权管理 |
+| oauth | 4 | - | 授权管理 |
 
 ### 1.3 Workflow Skills
 
@@ -155,7 +155,7 @@ Prefer User, Fallback App
 ### 5.1 架构
 
 ```
-StreamingSession（封装所有状态）
+StreamingCardController（封装所有状态）
   → createStreamingCard（CardKit API）
   → updateStreamingContent
   → finalizeCard + streaming_mode=false
@@ -163,8 +163,8 @@ StreamingSession（封装所有状态）
 
 ### 5.2 配置
 
-- `streaming: true` — 启用 DM 流式卡片
-- `streamingInGroup: true` — 额外启用群聊流式卡片
+- `streaming: true` - 启用 DM 流式卡片
+- `streamingInGroup: true` - 额外启用群聊流式卡片
 
 ### 5.3 降级策略
 
@@ -192,8 +192,6 @@ openclaw plugins install /path/to/openclaw-feishu-plus
 
 ```bash
 # 本地验证（无需凭证）
-npm test
-# 或
 for f in tests/verify-*.ts; do npx tsx "$f"; done
 
 # 真实飞书环境验证
@@ -206,17 +204,16 @@ npx tsx tests/verify-live-feishu-contract.ts
 
 ## 7. 当前限制
 
-1. **card action / callback**：✅ 已实现最小链路（webhook 收到 action → best-effort 路由到 agent → 回发文本/ack 卡片）；但“更新原卡片/异步任务卡片”等高级交互仍待增强
-2. **event subscription**：仍仅 `im.message.receive_v1`
-3. **user token 真实发送行为**：send.ts/outbound 已走 `identity/feishu-api`（双授权 HTTP 入口），但 user_access_token 在真实环境中的消息发送行为仍需回归验证
-4. **真实飞书环境端到端验证**：live harness 代码已就绪，但需要真实凭证跑通并沉淀结果
-5. **platform 层拆分**：✅ 已按 12 个业务域拆分 platform client（tools 仅做 schema/参数解析），无需再作为限制项
+1. **card action / callback**：最小链路已实现（webhook ack + best-effort agent 路由），"更新原卡片/异步任务卡片"等高级交互待增强
+2. **event subscription**：仅 `im.message.receive_v1`
+3. **user token 消息发送**：send.ts/outbound 已走双授权 HTTP 入口，但 user_access_token 在真实环境中的行为仍需回归验证
+4. **真实飞书环境验证**：live harness 代码就绪，需真实凭证跑通
 
 ---
 
 ## 8. 参考文档
 
-- `README.md` — 使用说明与工具列表
-- `IMPLEMENTATION_STATUS.md` — 真实实现状态
-- `CLOSURE_STATUS.md` — 分阶段完成度
-- `TECHNICAL_PLAN.md` — 完整技术方案
+- `README.md` - 使用说明与工具列表
+- `IMPLEMENTATION_STATUS.md` - 真实实现状态
+- `CLOSURE_STATUS.md` - 分阶段完成度
+- `TECHNICAL_PLAN.md` - 完整技术方案

@@ -1,9 +1,7 @@
 /**
  * send.ts — Feishu Plus Message Sending
  *
- * Channel outbound helpers.
- * Default path now goes through identity/feishu-api so outbound message APIs
- * can participate in dual-auth routing when a userId is provided.
+ * Outbound helpers with official-style reply threading + unavailable-message guard.
  */
 
 import {
@@ -15,6 +13,7 @@ import {
 } from "../identity/feishu-api.js";
 import type { IdentityMode } from "../identity/token-resolver.js";
 import { resolveReceiveIdType } from "./targets.js";
+import { normalizeMessageId, runWithMessageUnavailableGuard } from "./message-unavailable.js";
 
 export interface SendMessageParams {
   cfg: any;
@@ -25,6 +24,8 @@ export interface SendMessageParams {
   accountId?: string;
   userId?: string;
   identityMode?: IdentityMode;
+  replyToMessageId?: string;
+  replyInThread?: boolean;
 }
 
 export interface SendRequestLike {
@@ -47,12 +48,10 @@ let requestLike: SendRequestLike = {
   delete: feishuDelete,
 };
 
-/** 测试注入：覆盖 send.ts 使用的 feishu-api 请求实现 */
 export function __setSendRequestLikeForTests(mock: SendRequestLike): void {
   requestLike = mock;
 }
 
-/** 重置为默认的 feishu-api 实现 */
 export function __resetSendRequestLikeForTests(): void {
   requestLike = {
     post: feishuPost,
@@ -68,10 +67,7 @@ let sendModuleHooks: SendModuleHooks = {
 };
 
 export function __setSendModuleHooksForTests(hooks: Partial<SendModuleHooks>): void {
-  sendModuleHooks = {
-    ...sendModuleHooks,
-    ...hooks,
-  };
+  sendModuleHooks = { ...sendModuleHooks, ...hooks };
 }
 
 export function __resetSendModuleHooksForTests(): void {
@@ -80,55 +76,51 @@ export function __resetSendModuleHooksForTests(): void {
   };
 }
 
-/** Detect if text contains markdown elements that benefit from card rendering */
 export function shouldUseCard(text: string): boolean {
   return /```[\s\S]*?```/.test(text) || /\|.+\|[\r\n]+\|[-:| ]+\|/.test(text);
 }
 
-/**
- * Build a Feishu post-format payload with markdown (md) tag.
- * The official feishu plugin always uses this format for proper markdown rendering.
- */
 function buildPostMessagePayload(text: string): { content: string; msgType: string } {
   return {
     content: JSON.stringify({
-      zh_cn: {
-        content: [
-          [{ tag: "md", text }],
-        ],
-      },
+      zh_cn: { content: [[{ tag: "md", text }]] },
     }),
     msgType: "post",
   };
 }
 
-/**
- * Build a Feishu interactive card with markdown content.
- * Used for code blocks, tables, and other structured content.
- */
 export function buildMarkdownCard(text: string): Record<string, unknown> {
   return {
     schema: "2.0",
     config: { wide_screen_mode: true },
-    body: {
-      elements: [{ tag: "markdown", content: text }],
-    },
+    body: { elements: [{ tag: "markdown", content: text }] },
   };
 }
 
-/**
- * Send a text/card/file/image message to Feishu.
- *
- * When `msgType` and `content` are NOT specified (plain text path),
- * uses `post` format with `md` tag for proper markdown rendering.
- * This aligns with the official OpenClaw feishu plugin behavior.
- */
+export async function deleteMessageFeishu(params: {
+  cfg: any;
+  messageId: string;
+  accountId?: string;
+  userId?: string;
+  identityMode?: IdentityMode;
+}): Promise<any> {
+  return runWithMessageUnavailableGuard({
+    messageId: params.messageId,
+    operation: "im.message.delete",
+    fn: async () => {
+      const result = await requestLike.delete(
+        "im.message.delete",
+        `/open-apis/im/v1/messages/${normalizeMessageId(params.messageId)}`,
+        { userId: params.userId, identityMode: params.identityMode },
+      );
+      return result.data;
+    },
+  });
+}
+
 export async function sendMessageFeishu(params: SendMessageParams): Promise<any> {
-  const { to, text, msgType, content, userId, identityMode } = params;
+  const { to, text, msgType, content, userId, identityMode, replyToMessageId, replyInThread } = params;
 
-  const receiveIdType = resolveReceiveIdType(to);
-
-  // If explicit msgType/content provided (e.g. interactive card), use as-is
   let finalMsgType: string;
   let finalContent: string;
   if (msgType && content) {
@@ -138,12 +130,33 @@ export async function sendMessageFeishu(params: SendMessageParams): Promise<any>
     finalMsgType = msgType;
     finalContent = content || JSON.stringify({ text: text || "" });
   } else {
-    // Default path: use post format with md tag for proper markdown rendering
     const payload = buildPostMessagePayload(text || "");
     finalMsgType = payload.msgType;
     finalContent = payload.content;
   }
 
+  if (replyToMessageId) {
+    const normalizedId = normalizeMessageId(replyToMessageId);
+    return runWithMessageUnavailableGuard({
+      messageId: normalizedId,
+      operation: `im.message.reply(${finalMsgType})`,
+      fn: async () => {
+        const result = await requestLike.post(
+          "im.message.reply",
+          `/open-apis/im/v1/messages/${normalizedId}/reply`,
+          {
+            content: finalContent,
+            msg_type: finalMsgType,
+            reply_in_thread: replyInThread,
+          },
+          { userId, identityMode },
+        );
+        return result.data;
+      },
+    });
+  }
+
+  const receiveIdType = resolveReceiveIdType(to);
   const result = await requestLike.post(
     "im.message.create",
     "/open-apis/im/v1/messages",
@@ -152,20 +165,12 @@ export async function sendMessageFeishu(params: SendMessageParams): Promise<any>
       msg_type: finalMsgType,
       content: finalContent,
     },
-    {
-      userId,
-      identityMode,
-      params: { receive_id_type: receiveIdType },
-    },
+    { userId, identityMode, params: { receive_id_type: receiveIdType } },
   );
 
   return result.data;
 }
 
-/**
- * Send a message as a markdown card (interactive message).
- * Renders markdown properly in Feishu (code blocks, tables, bold/italic, etc.)
- */
 export async function sendMarkdownCardFeishu(params: SendMessageParams): Promise<any> {
   const card = buildMarkdownCard(params.text || "");
   return sendMessageFeishu({
@@ -176,9 +181,6 @@ export async function sendMarkdownCardFeishu(params: SendMessageParams): Promise
   });
 }
 
-/**
- * Send an interactive card to Feishu.
- */
 export async function sendCardFeishu(params: {
   cfg: any;
   to: string;
@@ -186,6 +188,8 @@ export async function sendCardFeishu(params: {
   accountId?: string;
   userId?: string;
   identityMode?: IdentityMode;
+  replyToMessageId?: string;
+  replyInThread?: boolean;
 }): Promise<any> {
   return sendModuleHooks.sendMessageFeishu({
     cfg: params.cfg,
@@ -195,12 +199,11 @@ export async function sendCardFeishu(params: {
     accountId: params.accountId,
     userId: params.userId,
     identityMode: params.identityMode,
+    replyToMessageId: params.replyToMessageId,
+    replyInThread: params.replyInThread,
   });
 }
 
-/**
- * Update an existing card message.
- */
 export async function updateCardFeishu(params: {
   cfg: any;
   messageId: string;
@@ -209,18 +212,21 @@ export async function updateCardFeishu(params: {
   userId?: string;
   identityMode?: IdentityMode;
 }): Promise<any> {
-  const result = await requestLike.patch(
-    "im.message.update",
-    `/open-apis/im/v1/messages/${params.messageId}`,
-    { content: JSON.stringify(params.card) },
-    { userId: params.userId, identityMode: params.identityMode },
-  );
-  return result.data;
+  return runWithMessageUnavailableGuard({
+    messageId: params.messageId,
+    operation: "im.message.update",
+    fn: async () => {
+      const result = await requestLike.patch(
+        "im.message.update",
+        `/open-apis/im/v1/messages/${normalizeMessageId(params.messageId)}`,
+        { content: JSON.stringify(params.card) },
+        { userId: params.userId, identityMode: params.identityMode },
+      );
+      return result.data;
+    },
+  });
 }
 
-/**
- * Edit a message's content.
- */
 export async function editMessageFeishu(params: {
   cfg: any;
   messageId: string;
@@ -230,21 +236,24 @@ export async function editMessageFeishu(params: {
   userId?: string;
   identityMode?: IdentityMode;
 }): Promise<any> {
-  const result = await requestLike.put(
-    "im.message.update",
-    `/open-apis/im/v1/messages/${params.messageId}`,
-    {
-      msg_type: params.msgType,
-      content: params.content,
+  return runWithMessageUnavailableGuard({
+    messageId: params.messageId,
+    operation: "im.message.update",
+    fn: async () => {
+      const result = await requestLike.put(
+        "im.message.update",
+        `/open-apis/im/v1/messages/${normalizeMessageId(params.messageId)}`,
+        {
+          msg_type: params.msgType,
+          content: params.content,
+        },
+        { userId: params.userId, identityMode: params.identityMode },
+      );
+      return result.data;
     },
-    { userId: params.userId, identityMode: params.identityMode },
-  );
-  return result.data;
+  });
 }
 
-/**
- * Get a message by ID.
- */
 export async function getMessageFeishu(params: {
   cfg: any;
   messageId: string;
@@ -252,10 +261,16 @@ export async function getMessageFeishu(params: {
   userId?: string;
   identityMode?: IdentityMode;
 }): Promise<any> {
-  const result = await requestLike.get(
-    "im.message.get",
-    `/open-apis/im/v1/messages/${params.messageId}`,
-    { userId: params.userId, identityMode: params.identityMode },
-  );
-  return result.data;
+  return runWithMessageUnavailableGuard({
+    messageId: params.messageId,
+    operation: "im.message.get",
+    fn: async () => {
+      const result = await requestLike.get(
+        "im.message.get",
+        `/open-apis/im/v1/messages/${normalizeMessageId(params.messageId)}`,
+        { userId: params.userId, identityMode: params.identityMode },
+      );
+      return result.data;
+    },
+  });
 }

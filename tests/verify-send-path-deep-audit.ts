@@ -228,19 +228,11 @@ async function main() {
     );
   });
 
-  check("streaming-card.ts is pure (no SDK imports, no side effects)", () => {
-    const src = readSrc("channel/streaming-card.ts");
-    assert(!src.includes("import"), "streaming-card.ts should have no imports (pure functions)");
+  check("reasoning-text.ts is pure (no SDK imports, no side effects)", () => {
+    const src = readSrc("channel/reasoning-text.ts");
+    assert(!src.includes("import"), "reasoning-text.ts should have no imports (pure functions)");
     assert(!src.includes("fetch"), "should not call fetch");
     assert(!src.includes("client"), "should not reference SDK client");
-  });
-
-  check("streaming-dispatch-executor.ts has no SDK imports", () => {
-    const src = readSrc("channel/streaming-dispatch-executor.ts");
-    assert(!src.includes("@larksuiteoapi"), "should not import lark SDK");
-    assert(!src.includes("fetch"), "should not call fetch");
-    // Only imports the pure dispatch function
-    assert(src.includes("streaming-card-dispatch"), "should import pure dispatch only");
   });
 
   // ── 5. Identity layer integrity ──

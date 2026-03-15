@@ -10,7 +10,7 @@
  * 关键改进：
  * - 全部已实现平台工具均已接入双授权决策链路
  * - 工具注册时自动提取 userId 并传递
- * - NeedUserAuthorizationError → 友好授权提示
+ * - AuthRequiredError → 友好授权提示
  */
 
 import { PLUGIN_ID, CONFIG_NAMESPACE } from "./src/constants.js";

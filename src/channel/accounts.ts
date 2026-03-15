@@ -34,6 +34,15 @@ export interface FeishuAccountConfig {
   mediaMaxMb?: number;
   streaming?: boolean;
   streamingInGroup?: boolean;
+  replyMode?: "auto" | "static" | "streaming" | {
+    default?: "auto" | "static" | "streaming";
+    direct?: "auto" | "static" | "streaming";
+    group?: "auto" | "static" | "streaming";
+  };
+  footer?: {
+    status?: boolean;
+    elapsed?: boolean;
+  };
   accounts?: Record<string, FeishuAccountConfig>;
 }
 

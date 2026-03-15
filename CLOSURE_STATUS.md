@@ -1,118 +1,91 @@
-# CLOSURE_STATUS.md — 真实完成度
+# CLOSURE_STATUS — 真实完成度
 
-> 最后更新: 2026-03-13 Round 14 — 平台层迁移完成 + 流式卡片修复
+> 最后更新: 2026-03-15
 
 ## 总体判断
 
-项目已达到 **Phase 2 完成 + Phase 3 部分完成** 状态：
-- 12 个飞书业务域工具全部实现并接入双授权链路（含 approval + search）
-- OAuth 授权管理工具已接入注册链路
-- StreamingSession 封装消除了 plugin.ts 散布的闭包状态
-- 5 个高频 workflow skills 已完成
-- 21 个测试文件全部通过；`npm run verify` 全绿
-- 79 个 API 操作在 API_POLICY 注册表中
+Phase 2 完成 + Phase 3 部分完成。
+- 12 个飞书业务域 + OAuth = 74 个工具，全部接入双授权链路
+- Channel 完整闭环（pairing / directory / gateway / probe / streaming）
+- 5 个 workflow skills
+- 16 个测试文件全部通过
+- 79 个 API 操作在 API_POLICY 注册
 
-**仍需真实环境验证的部分：**
-1. 真实飞书环境端到端验证（live harness 代码就绪）
-2. 流式卡片在真实 CardKit 环境的稳定性
-3. user token 真实消息发送链路回归
-4. 更多高级能力（card action / event subscription / bot menus）
+**待真实环境验证**: 流式卡片稳定性、user token 消息发送、card action 路由。
 
 ---
 
 ## Phase 1: 架构与核心链路 — ✅ 完成
 
-| 项目 | 状态 | 说明 |
-|------|------|------|
-| 目录结构对齐 | ✅ | `src/channel` / `src/identity` / `src/tools` 主结构 |
-| channel 外壳 | ✅ | 完整 ChannelPlugin hooks |
-| account/config 统一 | ✅ | accounts.ts + config.ts + policy.ts |
-| 双授权核心层 | ✅ | token-store / token-resolver / api-policy / oauth / request-executor / auth-prompt |
-| websocket/webhook 入口 | ✅ | 双模式 gateway |
-| 基础消息收发 | ✅ | im.message.receive_v1 / 回消息 |
-| 流式卡片 | ✅ | DM + 群聊，StreamingSession 封装 |
-| 诊断 (probe) | ✅ | probeFeishuPlus |
-| 构建通过 | ✅ | build / tsc --noEmit 持续通过 |
+| 项目 | 状态 |
+|------|------|
+| 目录结构对齐 | ✅ channel / identity / platform / tools 四层 |
+| channel 外壳 | ✅ 完整 ChannelPlugin hooks |
+| account/config 统一 | ✅ accounts.ts + config.ts + policy.ts |
+| 双授权核心层 | ✅ token-store / resolver / api-policy / oauth / executor |
+| websocket/webhook 双模式 | ✅ |
+| 基础消息收发 | ✅ |
+| 流式卡片 | ✅ DM + 群聊，StreamingCardController 封装 |
+| 诊断 (probe) | ✅ |
+| 构建通过 | ✅ |
 
----
+## Phase 2: 核心业务域 — ✅ 完成
 
-## Phase 2: 核心业务域补齐 — ✅ 完成
-
-| 业务域 | 工具数 | 状态 |
-|--------|--------|------|
-| Docs | 4 | ✅ 双授权 |
-| Calendar | 9 | ✅ 双授权（含 freebusy user_only） |
-| Chat / IM | 8 | ✅ 双授权 |
-| Wiki | 4 | ✅ 双授权 |
-| Drive | 8 | ✅ 双授权 |
-| Bitable | 6 | ✅ 双授权 |
-| Task | 5 | ✅ 双授权 |
-| Perm | 5 | ✅ 双授权（含 transferOwner user_only） |
-| Sheets | 5 | ✅ 双授权 |
-| Contact | 6 | ✅ 双授权（含 user.me user_only） |
-| Approval | 7 | ✅ 双授权 |
-| Search | 3 | ✅ 双授权（all user_only） |
-| OAuth | 4 | ✅ 用户授权管理 |
+| 域 | 工具数 | 状态 |
+|----|--------|------|
+| Doc | 4 | ✅ |
+| Calendar | 9 | ✅ |
+| Chat/IM | 8 | ✅ |
+| Wiki | 4 | ✅ |
+| Drive | 8 | ✅ |
+| Bitable | 6 | ✅ |
+| Task | 5 | ✅ |
+| Perm | 5 | ✅ |
+| Sheets | 5 | ✅ |
+| Contact | 6 | ✅ |
+| Approval | 7 | ✅ |
+| Search | 3 | ✅ |
+| OAuth | 4 | ✅ |
 | **合计** | **74** | |
-
----
 
 ## Phase 3: 交互与高级能力 — 部分完成
 
 | 项目 | 状态 | 说明 |
 |------|------|------|
-| Approval | ✅ | 7 个工具（定义/实例/创建/同意/拒绝/撤回），user_only 操作正确标记 |
-| Search | ✅ | 3 个工具（消息/文档/应用搜索），全部 user_only |
-| Card Action / Callback | ❌ | 尚未实现 |
-| Event Subscription 体系 | ❌ | 仅 im.message.receive_v1 |
-| Bot Menus / Config | ❌ | 尚未实现 |
+| Approval / Search 工具 | ✅ | 10 个工具，user_only 正确标记 |
+| Card Action | ⚡ | 最小链路（webhook ack + best-effort agent 路由） |
+| Event Subscription | ❌ | 仅 im.message.receive_v1 |
+| Bot Menus / Config | ❌ | 未实现 |
 
----
-
-## Phase 4: Skills 增强 — ✅ 完成（初版）
+## Phase 4: Skills — ✅ 初版完成
 
 | Skill | 内容 |
 |-------|------|
-| feishu-doc | 文档创建/读取/编辑工作流指南 |
-| feishu-calendar | 日程查询/创建/忙闲协调工作流指南 |
-| feishu-bitable | 多维表格 CRUD 与批量数据工作流指南 |
-| feishu-drive | 云盘文件管理与权限工作流指南 |
-| feishu-approval | 审批定义/实例/操作工作流指南 |
+| feishu-doc | 文档工作流 |
+| feishu-calendar | 日程工作流 |
+| feishu-bitable | 多维表格工作流 |
+| feishu-drive | 云盘工作流 |
+| feishu-approval | 审批工作流 |
 
 ---
 
 ## 工程质量
 
-| 项目 | 数量 | 说明 |
-|------|------|------|
-| 测试文件 | 21 | 全部通过 |
-| 测试检查项 | 249+ | 含 API policy / 双授权 / streaming / 边界 / 回归 |
-| API Policy 操作 | 79 | 所有工具操作注册且域匹配 |
-| Build | ✅ | npm run build 零错误 |
-| TypeScript | ✅ | tsc --noEmit 零错误 |
-| Verify 套件 | ✅ | `npm run verify` 全量通过 |
+| 指标 | 数据 |
+|------|------|
+| 测试文件 | 16 个，全部通过 |
+| API Policy 操作 | 79 |
+| Build | ✅ 零错误 |
+| tsc --noEmit | ✅ 零错误 |
 
----
+## 结构对照
 
-## 结构对照（TECHNICAL_PLAN.md vs 实际）
-
-```text
-PLAN 目标                实际状态
-src/channel/             ✅ 完整（含 StreamingSession 封装）
-src/identity/            ✅ 双授权核心 + 79 操作 API Policy
-src/platform/            ✅ 已按 12 个业务域拆分 client（tools 仅做 schema/参数解析）
-src/tools/               ✅ 12 个业务域 + oauth
-src/shared/              ❌ 尚未系统化整理
-skills/                  ✅ 5 个 workflow skills
 ```
-
----
-
-## 当前最关键的未完成项
-
-1. **真实飞书环境契约验证** — live harness 代码就绪，需凭证执行
-2. **流式卡片真实环境回归** — DM / 群聊 / finalize / settings 在真实 CardKit 环境确认
-3. **card action / event subscription** — Phase 3 剩余（已有最小 webhook ack，未路由到 agent）
-
-> 注：`send.ts` 的普通消息发送链路已接入 `identity/feishu-api`，不再属于当前阻塞项；
-> 当前尚未真实验证的是 **user token 在消息发送场景中的线上行为**，而非代码链路未接入。
+TECHNICAL_PLAN 目标    实际状态
+src/channel/           ✅ 完整
+src/identity/          ✅ 完整（79 操作 API Policy）
+src/platform/          ✅ 12 域拆分完成
+src/tools/             ✅ 12 域 + oauth
+src/shared/            ❌ 未系统化
+skills/                ✅ 5 个
+```

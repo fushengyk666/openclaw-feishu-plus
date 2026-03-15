@@ -579,7 +579,7 @@ channels: {
 必须统一维护这些文档：
 
 - `README.md`：安装、配置、能力概览
-- `CHANGES.md`：版本变化
+- `IMPLEMENTATION_STATUS.md`：当前真实实现状态
 - `CLOSURE_STATUS.md`：真实完成度，不夸大
 - `INTEGRATION_GUIDE.md`：接入路径
 - `TECHNICAL_PLAN.md`：本方案文档
